@@ -79,13 +79,13 @@
 
 
 
-<meta name="description" content="首先区分一下，什么是同步渲染和异步渲染。 同步：浏览器访问网址，浏览器创建新的tabpage，新的内存块，加载页面的全部资源并渲染全部资源。但只要有页面中的任何一个操作，就会从新的开端全部在创建请求渲染一次，浏览器自己控制的http。 异步：用之前已经渲染过的页面数据，与后台交互数据不需要重新来渲染页面，实现对页面的部分更新。这里主要讲动态插入 HTML 标签的异步渲染。 同步渲染一般我们会把样">
+<meta name="description" content="首先区分一下，什么是同步渲染和异步渲染。 同步：浏览器访问网址，浏览器创建新的tabpage，新的内存块，加载页面的全部资源并渲染全部资源。但只要有页面中的任何一个操作，就会从新的开端全部在创建请求渲染一次，浏览器自己控制的http。 异步：用之前已经渲染过的页面数据，与后台交互数据不需要重新来渲染页面，实现对页面的部分更新。这里主要讲动态插入 HTML 标签的异步渲染。">
 <meta name="keywords" content="渲染,优化">
 <meta property="og:type" content="article">
 <meta property="og:title" content="同步渲染和异步渲染对 DOM 的阻塞">
 <meta property="og:url" content="http://www.xqyoung.com/2018/11/19/async-render/index.html">
 <meta property="og:site_name" content="xqyoung&#39;s blog">
-<meta property="og:description" content="首先区分一下，什么是同步渲染和异步渲染。 同步：浏览器访问网址，浏览器创建新的tabpage，新的内存块，加载页面的全部资源并渲染全部资源。但只要有页面中的任何一个操作，就会从新的开端全部在创建请求渲染一次，浏览器自己控制的http。 异步：用之前已经渲染过的页面数据，与后台交互数据不需要重新来渲染页面，实现对页面的部分更新。这里主要讲动态插入 HTML 标签的异步渲染。 同步渲染一般我们会把样">
+<meta property="og:description" content="首先区分一下，什么是同步渲染和异步渲染。 同步：浏览器访问网址，浏览器创建新的tabpage，新的内存块，加载页面的全部资源并渲染全部资源。但只要有页面中的任何一个操作，就会从新的开端全部在创建请求渲染一次，浏览器自己控制的http。 异步：用之前已经渲染过的页面数据，与后台交互数据不需要重新来渲染页面，实现对页面的部分更新。这里主要讲动态插入 HTML 标签的异步渲染。">
 <meta property="og:locale" content="default">
 <meta property="og:image" content="https://www.html5rocks.com/zh/tutorials/internals/howbrowserswork/webkitflow.png">
 <meta property="og:image" content="http://www.xqyoung.com/2018/11/19/async-render/render1.png">
@@ -96,10 +96,10 @@
 <meta property="og:image" content="http://www.xqyoung.com/2018/11/19/async-render/render6.png">
 <meta property="og:image" content="http://www.xqyoung.com/2018/11/19/async-render/render7.png">
 <meta property="og:image" content="https://image-static.segmentfault.com/215/179/2151798436-59da4801c6772_articlex">
-<meta property="og:updated_time" content="2018-11-19T13:02:41.757Z">
+<meta property="og:updated_time" content="2018-11-19T13:05:11.556Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="同步渲染和异步渲染对 DOM 的阻塞">
-<meta name="twitter:description" content="首先区分一下，什么是同步渲染和异步渲染。 同步：浏览器访问网址，浏览器创建新的tabpage，新的内存块，加载页面的全部资源并渲染全部资源。但只要有页面中的任何一个操作，就会从新的开端全部在创建请求渲染一次，浏览器自己控制的http。 异步：用之前已经渲染过的页面数据，与后台交互数据不需要重新来渲染页面，实现对页面的部分更新。这里主要讲动态插入 HTML 标签的异步渲染。 同步渲染一般我们会把样">
+<meta name="twitter:description" content="首先区分一下，什么是同步渲染和异步渲染。 同步：浏览器访问网址，浏览器创建新的tabpage，新的内存块，加载页面的全部资源并渲染全部资源。但只要有页面中的任何一个操作，就会从新的开端全部在创建请求渲染一次，浏览器自己控制的http。 异步：用之前已经渲染过的页面数据，与后台交互数据不需要重新来渲染页面，实现对页面的部分更新。这里主要讲动态插入 HTML 标签的异步渲染。">
 <meta name="twitter:image" content="https://www.html5rocks.com/zh/tutorials/internals/howbrowserswork/webkitflow.png">
 
 
@@ -352,10 +352,10 @@
       
 
       
-        <a id="more"></a>
-<p>首先区分一下，什么是同步渲染和异步渲染。</p>
+        <p>首先区分一下，什么是同步渲染和异步渲染。</p>
 <p>同步：浏览器访问网址，浏览器创建新的tabpage，新的内存块，加载页面的全部资源并渲染全部资源。但只要有页面中的任何一个操作，就会从新的开端全部在创建请求渲染一次，浏览器自己控制的http。</p>
 <p>异步：用之前已经渲染过的页面数据，与后台交互数据不需要重新来渲染页面，实现对页面的部分更新。这里主要讲动态插入 HTML 标签的异步渲染。</p>
+<a id="more"></a>
 <h3 id="同步渲染"><a href="#同步渲染" class="headerlink" title="同步渲染"></a>同步渲染</h3><p>一般我们会把样式写在 HTML 头部，页面脚本放在 <code>&lt;/body&gt;</code> 之前，因为样式和脚本会阻塞 DOM 渲染，但是样式不阻塞 DOM 解析。</p>
 <p>以下是 Webkit 解析资源，最终呈现页面的主流程</p>
 <p><img src="https://www.html5rocks.com/zh/tutorials/internals/howbrowserswork/webkitflow.png" alt="Webkit&#39;s process"></p>
