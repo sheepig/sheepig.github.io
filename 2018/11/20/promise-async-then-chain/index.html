@@ -79,20 +79,20 @@
 
 
 
-<meta name="description" content="本文相关术语见 Promise A+ 规范   解析 lie 库的 Promise  异步编程 Promise许多讲 Promise 的文章，喜欢提及 Promise 解决回调地狱的能力。Promise 拥有这能力，本质是它有一个 then 方法，用以访问最终的 reason 或 value 。只有当当前 promise 实例的状态不是 PENDING 时，才会去注册它的 resolve 回调或">
+<meta name="description" content="本文相关术语见 Promise A+ 规范解析 lie 库的 Promise  异步编程 Promise许多讲 Promise 的文章，喜欢提及 Promise 解决回调地狱的能力。Promise 拥有这能力，本质是它有一个 then 方法，用以访问最终的 reason 或 value 。只有当当前 promise 实例的状态不是 PENDING 时，才会去注册它的 resolve 回调或者 r">
 <meta name="keywords" content="js,异步编程">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Promise 异步队列">
 <meta property="og:url" content="http://www.xqyoung.com/2018/11/20/promise-async-then-chain/index.html">
 <meta property="og:site_name" content="xqyoung&#39;s blog">
-<meta property="og:description" content="本文相关术语见 Promise A+ 规范   解析 lie 库的 Promise  异步编程 Promise许多讲 Promise 的文章，喜欢提及 Promise 解决回调地狱的能力。Promise 拥有这能力，本质是它有一个 then 方法，用以访问最终的 reason 或 value 。只有当当前 promise 实例的状态不是 PENDING 时，才会去注册它的 resolve 回调或">
+<meta property="og:description" content="本文相关术语见 Promise A+ 规范解析 lie 库的 Promise  异步编程 Promise许多讲 Promise 的文章，喜欢提及 Promise 解决回调地狱的能力。Promise 拥有这能力，本质是它有一个 then 方法，用以访问最终的 reason 或 value 。只有当当前 promise 实例的状态不是 PENDING 时，才会去注册它的 resolve 回调或者 r">
 <meta property="og:locale" content="default">
 <meta property="og:image" content="http://www.xqyoung.com/2018/11/20/promise-async-then-chain/p1.png">
 <meta property="og:image" content="http://www.xqyoung.com/2018/11/20/promise-async-then-chain/p2.png">
-<meta property="og:updated_time" content="2018-11-20T04:03:50.999Z">
+<meta property="og:updated_time" content="2018-11-20T04:05:54.879Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Promise 异步队列">
-<meta name="twitter:description" content="本文相关术语见 Promise A+ 规范   解析 lie 库的 Promise  异步编程 Promise许多讲 Promise 的文章，喜欢提及 Promise 解决回调地狱的能力。Promise 拥有这能力，本质是它有一个 then 方法，用以访问最终的 reason 或 value 。只有当当前 promise 实例的状态不是 PENDING 时，才会去注册它的 resolve 回调或">
+<meta name="twitter:description" content="本文相关术语见 Promise A+ 规范解析 lie 库的 Promise  异步编程 Promise许多讲 Promise 的文章，喜欢提及 Promise 解决回调地狱的能力。Promise 拥有这能力，本质是它有一个 then 方法，用以访问最终的 reason 或 value 。只有当当前 promise 实例的状态不是 PENDING 时，才会去注册它的 resolve 回调或者 r">
 <meta name="twitter:image" content="http://www.xqyoung.com/2018/11/20/promise-async-then-chain/p1.png">
 
 
@@ -356,10 +356,7 @@
 
       
         <blockquote>
-<p>本文相关术语见 Promise A+ 规范</p>
-</blockquote>
-<blockquote>
-<p><a href="../promise/note.md">解析 lie 库的 Promise</a></p>
+<p>本文相关术语见 Promise A+ 规范<br><a href="https://www.xqyoung.com/2018/11/20/promise-lie/">解析 lie 库的 Promise</a></p>
 </blockquote>
 <h3 id="异步编程-Promise"><a href="#异步编程-Promise" class="headerlink" title="异步编程 Promise"></a>异步编程 Promise</h3><p>许多讲 Promise 的文章，喜欢提及 Promise 解决回调地狱的能力。Promise 拥有这能力，本质是它有一个 then 方法，用以访问最终的 reason 或 value 。只有当当前 promise 实例的状态不是 PENDING 时，才会去注册它的 resolve 回调或者 reject 回调。为确保回调函数会执行，要在新建 Promise 的时候显式调用 resolve 或 reject （或者使用 Promise.resolve() Promise.reject() ）</p>
 <p>then 方法中，我们可以做三件事：</p>
