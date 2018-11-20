@@ -82,19 +82,19 @@
 <meta name="description" content="css width, height, margin 的计算  居中子元素可能是块级元素，行内不可替换元素，行内可替换元素（以 img 元素为例）。 后面的样式基于下面的 html： 123&amp;lt;div class=&quot;parent&quot;&amp;gt;  &amp;lt;div class=&quot;child&quot;&amp;gt;&amp;lt;/div&amp;gt;&amp;lt;/div&amp;gt; margin-left + margin-right一">
 <meta name="keywords" content="css">
 <meta property="og:type" content="article">
-<meta property="og:title" content="css-middle-util">
+<meta property="og:title" content="css 居中那点事">
 <meta property="og:url" content="http://www.xqyoung.com/2018/11/20/css-middle-util/index.html">
 <meta property="og:site_name" content="xqyoung&#39;s blog">
 <meta property="og:description" content="css width, height, margin 的计算  居中子元素可能是块级元素，行内不可替换元素，行内可替换元素（以 img 元素为例）。 后面的样式基于下面的 html： 123&amp;lt;div class=&quot;parent&quot;&amp;gt;  &amp;lt;div class=&quot;child&quot;&amp;gt;&amp;lt;/div&amp;gt;&amp;lt;/div&amp;gt; margin-left + margin-right一">
 <meta property="og:locale" content="default">
-<meta property="og:image" content="http://www.xqyoung.com/2018/11/20/css-middle-util/static/inline-block-gap.png">
+<meta property="og:image" content="http://www.xqyoung.com/2018/11/20/css-middle-util/inline-block-gap.png">
 <meta property="og:image" content="https://alistapart.com/d/holygrail/diagram_01.gif">
 <meta property="og:image" content="https://camo.githubusercontent.com/5dcd3ed2efcb76a372a2d0db44e7b993192d5cdc/68747470733a2f2f757365722d676f6c642d63646e2e786974752e696f2f323031372f31312f31332f31356662346564623132616261316134">
-<meta property="og:updated_time" content="2018-11-20T03:09:39.213Z">
+<meta property="og:updated_time" content="2018-11-20T03:11:07.374Z">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="css-middle-util">
+<meta name="twitter:title" content="css 居中那点事">
 <meta name="twitter:description" content="css width, height, margin 的计算  居中子元素可能是块级元素，行内不可替换元素，行内可替换元素（以 img 元素为例）。 后面的样式基于下面的 html： 123&amp;lt;div class=&quot;parent&quot;&amp;gt;  &amp;lt;div class=&quot;child&quot;&amp;gt;&amp;lt;/div&amp;gt;&amp;lt;/div&amp;gt; margin-left + margin-right一">
-<meta name="twitter:image" content="http://www.xqyoung.com/2018/11/20/css-middle-util/static/inline-block-gap.png">
+<meta name="twitter:image" content="http://www.xqyoung.com/2018/11/20/css-middle-util/inline-block-gap.png">
 
 
 
@@ -130,7 +130,7 @@
 
 
 
-  <title>css-middle-util | xqyoung's blog</title>
+  <title>css 居中那点事 | xqyoung's blog</title>
   
 
 
@@ -274,7 +274,7 @@
 
         
         
-          <h1 class="post-title" itemprop="name headline">css-middle-util</h1>
+          <h1 class="post-title" itemprop="name headline">css 居中那点事</h1>
         
 
         <div class="post-meta">
@@ -374,7 +374,7 @@
 <h4 id="inline-block-text-align"><a href="#inline-block-text-align" class="headerlink" title="inline-block + text-align"></a>inline-block + text-align</h4><p>inline-block：对外呈现行内元素，对内呈现块级元素。所以可以设定宽高；没有指定宽高的时候，像行内元素一样由内容去界定盒子大小。可以像行内元素一样，多个排列在一行。</p>
 <figure class="highlight css"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="selector-class">.parent</span> &#123;</span><br><span class="line">	<span class="attribute">text-align</span>: center;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="selector-class">.child</span> &#123;</span><br><span class="line">	<span class="attribute">display</span>: inline-block;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>多个 inline-block 元素并排，元素之间在某些情况下会出现“莫名的间隙”。</p>
-<p><img src="./static/inline-block-gap.png" alt="inline-block gap"></p>
+<p><img src="inline-block-gap.png" alt="inline-block gap"></p>
 <figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">&lt;!-- 不会有间隙 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">div</span> <span class="attr">class</span>=<span class="string">"parent"</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">div</span> <span class="attr">class</span>=<span class="string">"child box"</span>&gt;</span>cc<span class="tag">&lt;/<span class="name">div</span>&gt;</span><span class="tag">&lt;<span class="name">div</span> <span class="attr">class</span>=<span class="string">"child box"</span>&gt;</span>ff<span class="tag">&lt;/<span class="name">div</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">div</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">&lt;!-- 出现间隙 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">div</span> <span class="attr">class</span>=<span class="string">"parent"</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">div</span> <span class="attr">class</span>=<span class="string">"child box"</span>&gt;</span>cc<span class="tag">&lt;/<span class="name">div</span>&gt;</span></span><br><span class="line">	<span class="tag">&lt;<span class="name">div</span> <span class="attr">class</span>=<span class="string">"child box"</span>&gt;</span>ff<span class="tag">&lt;/<span class="name">div</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">div</span>&gt;</span></span><br></pre></td></tr></table></figure>
 <p>间隙是子元素之间的空格符或回车符引起的。既然是字符，那便可以让它“最小化”，达到去除间隙的目的。</p>
 <figure class="highlight css"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="selector-class">.parent</span> &#123;</span><br><span class="line">	<span class="attribute">font-size</span>: <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="selector-class">.child</span> &#123;</span><br><span class="line">	<span class="attribute">font-size</span>: <span class="number">14px</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
@@ -428,8 +428,8 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/2018/11/20/css-selector/" rel="next" title="css-selector">
-                <i class="fa fa-chevron-left"></i> css-selector
+              <a href="/2018/11/20/css-selector/" rel="next" title="css 选择器优先级计算">
+                <i class="fa fa-chevron-left"></i> css 选择器优先级计算
               </a>
             
           </div>
