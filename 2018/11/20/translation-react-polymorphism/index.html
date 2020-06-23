@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  
+  
+    <meta name="description" content="forever young">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>
+    【译文】React 的多态性 |
+    
+    xqyoung&#39;s blog</title>
+  
+    <link rel="shortcut icon" href="/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+  
+    <link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+  
+  <script src="/js/pace.min.js"></script>
+</head>
+</html>
+<body>
+<main class="content">
+  <section class="outer">
+  <article id="post-translation-react-polymorphism" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h1 class="article-title" itemprop="name">
+      【译文】React 的多态性
+    </h1>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/20/translation-react-polymorphism/" class="article-date">
+  <time datetime="2018-11-20T15:14:43.000Z" itemprop="datePublished">2018-11-20</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/译文/">译文</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+                            
+    <div class="tocbot"></div>
+
+
+
+
+
+                                
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <blockquote>
+<p>原文链接 <a href="https://medium.com/@bmeurer/surprising-polymorphism-in-react-applications-63015b50abc" target="_blank" rel="noopener">Surprising polymorphism in React applications</a><br>如有不当，欢迎指正！</p>
+</blockquote>
+<h2 id="React-的多态性"><a href="#React-的多态性" class="headerlink" title="React 的多态性"></a>React 的多态性</h2><p>现今，基于 <a href="https://facebook.github.io/react/" target="_blank" rel="noopener">React</a> 的 Web app 通常使用一些不可变的数据结构来管理状态，比如流行的 <a href="http://redux.js.org/" target="_blank" rel="noopener">Redux</a> 状态容器。 这种模式有几点好处，并且在 React/Redux 之外的领域愈加受欢迎。</p>
+<p>这种机制的核心便是所谓的 <code>reducers</code>，它们是函数，根据触发的 <code>action</code> 更改某个状态到下一个状态————比如响应用户交互。有了这个核心的抽象概念，复杂的 <code>state</code> 和 <code>reducers</code> 可以组合成简化版本，方便了代码分段下的单元测试。请看下面来自于 <a href="http://redux.js.org/docs/basics/ExampleTodoList.html" target="_blank" rel="noopener">Redux 文档</a> 的例子：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// redux-todo.js</span></span><br><span class="line"><span class="keyword">const</span> todo = <span class="function">(<span class="params">state = &#123;&#125;, action</span>) =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">switch</span> (action.type) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'ADD_TODO'</span>:</span><br><span class="line">      <span class="keyword">return</span> &#123;</span><br><span class="line">        id: action.id,</span><br><span class="line">        text: action.text,</span><br><span class="line">        completed: <span class="literal">false</span></span><br><span class="line">      &#125;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'TOGGLE_TODO'</span>:</span><br><span class="line">      <span class="keyword">if</span> (state.id !== action.id) &#123;</span><br><span class="line">        <span class="keyword">return</span> state</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">Object</span>.assign(&#123;&#125;, state, &#123;</span><br><span class="line">        completed: !state.completed</span><br><span class="line">      &#125;)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">default</span>:</span><br><span class="line">      <span class="keyword">return</span> state</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>todo</code> reducer 响应 <code>action</code> 将现存的 <code>state</code> 映射到一个新的 <code>state</code>。从性能优化的角度看代码，它似乎遵守了代码单态的原则，比如，保持对象的 <code>shape</code> 一致。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// redux-todo-use.js</span></span><br><span class="line"><span class="keyword">const</span> s1 = todo(&#123;&#125;, &#123;</span><br><span class="line">  type: <span class="string">'ADD_TODO'</span>,</span><br><span class="line">  id: <span class="number">1</span>,</span><br><span class="line">  text: <span class="string">"Finish blog post"</span></span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> s2 = todo(s1, &#123;</span><br><span class="line">  type: <span class="string">'TOGGLE_TODO'</span>,</span><br><span class="line">  id: <span class="number">1</span></span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">render</span>(<span class="params">state</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> state.id + <span class="string">": "</span> + state.text;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">render(s1);</span><br><span class="line">render(s2);</span><br><span class="line">render(s1);</span><br><span class="line">render(s2);</span><br></pre></td></tr></table></figure>
+<p>坦白说，<code>render</code> 处理的属性应该是单态的，例如，<code>state</code> 对象的应当有一样的 <code>shape</code> —— <a href="https://github.com/v8/v8/wiki/Design%20Elements#fast-property-access" target="_blank" rel="noopener">map or hidden class in V8 speak</a>。在同一时刻，序列中的<code>s1</code> 和 <code>s2</code> 都有 <code>id</code> ，<code>test</code> ，<code>completed</code>  属性。然而，在 <code>d8</code> shell 上运行这段代码并追踪 ICs（inline cahces 内联缓存），我们观察到，<code>render</code> 侦测到不同的对象 shapes ，<code>state.id</code> 和 <code>state.test</code> 属性的访问是多态的。</p>
+<p><img src="https://cdn-images-1.medium.com/max/800/1*FrfEaOkxshIj79wJDQyrIQ.png" alt=""></p>
+<p>那单态性从何说起？这其实很微妙，跟 V8 处理对象字面量的方式有关。每个对象字面量——比如，形如 <code>{a:va,...,z:vb}</code> 的表达式定义了 <code>transition</code> 树的根 <code>map</code> （记住 <code>map</code> 是 <code>V8 speak</code> 为 对象 <code>shape</code> 而生的）。如果你使用一个空的对象字面量 <code>{}</code> 作为 <code>transition</code> 树的跟，它就是不包含任何属性的 <code>map</code> ；如果使用 <code>{id:id, text:text, completed:completed}</code> 对象字面量，那么 <code>transition</code> 树的跟就是一个包含这些属性的 <code>map</code> 。看看一个简化的例子：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// transition-tree.js</span></span><br><span class="line"><span class="keyword">let</span> a = &#123;<span class="attr">x</span>:<span class="number">1</span>, <span class="attr">y</span>:<span class="number">2</span>, <span class="attr">z</span>:<span class="number">3</span>&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> b = &#123;&#125;;</span><br><span class="line">b.x = <span class="number">1</span>;</span><br><span class="line">b.y = <span class="number">2</span>;</span><br><span class="line">b.z = <span class="number">3</span>;</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a is"</span>, a);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"b is"</span>, b);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a and b have same map:"</span>, %HaveSameMap(a, b));</span><br></pre></td></tr></table></figure>
+<p>你可以在 Node.js 上运行这段代码，并附上 <code>--allow-natives-syntax</code> 命令行标识（允许使用内置的 <code>%HaveSameMap</code> ）:</p>
+<p><img src="https://cdn-images-1.medium.com/max/800/1*yzSaH_AE5z7r9PWBXlvwWg.png" alt=""></p>
+<p>尽管对象 <code>a</code> 和 <code>b</code> 看起来一样——拥有同样的属性，对应类型一样，顺序一样——它们的 map 却不同。这是因为它们有不同的 transition 树，如下图所示：</p>
+<p><img src="https://cdn-images-1.medium.com/max/800/1*fkbEgBWk74icFH1yZIH7Lw.png" alt=""></p>
+<p>使用不同的（不相容）的对象字面量创建对象时，多态性便隐藏在其中。这点在常用的 <code>Object.assign</code> 中尤为显著，举个例子：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// object-assign.js</span></span><br><span class="line"><span class="keyword">let</span> a = &#123;<span class="attr">x</span>:<span class="number">1</span>, <span class="attr">y</span>:<span class="number">2</span>, <span class="attr">z</span>:<span class="number">3</span>&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> b = <span class="built_in">Object</span>.assign(&#123;&#125;, a);</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a is"</span>, a);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"b is"</span>, b);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a and b have same map:"</span>, %HaveSameMap(a, b));</span><br></pre></td></tr></table></figure>
+<p>仍是产生的了不同的 map ，因为对象 <code>b</code> 始于一个空的对象（<code>{}</code> 字面量），<code>Object.assign</code> 只是把属性一个个拼连上去。</p>
+<p><img src="https://cdn-images-1.medium.com/max/800/1*Xu-nIj21gj-GlHDkzsSOSA.png" alt=""></p>
+<p>这同样适用于有大量属性并通过 Babel 编译的场景。因为 Babel——或者其他编译器——在对处理大量属性的时候使用了 <code>Object.assign</code> 。</p>
+<p><img src="https://cdn-images-1.medium.com/max/800/1*F2x8lRcZ83pQDvftelFOgA.png" alt=""></p>
+<p>避免多态性的一种方式是从始至终使用 <code>Object.assign</code> 方法，那么所有的对象就始于一个空的对象字面量。但在状态管理逻辑中，这可能成为一个性能瓶颈。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// object-assign-everywhere.js</span></span><br><span class="line"><span class="keyword">let</span> a = <span class="built_in">Object</span>.assign(&#123;&#125;, &#123;<span class="attr">x</span>:<span class="number">1</span>, <span class="attr">y</span>:<span class="number">2</span>, <span class="attr">z</span>:<span class="number">3</span>&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> b = <span class="built_in">Object</span>.assign(&#123;&#125;, a);</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a is"</span>, a);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"b is"</span>, b);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a and b have same map:"</span>, %HaveSameMap(a, b));</span><br></pre></td></tr></table></figure>
+<p>也就是说，关于代码多态化的问题还未停歇。保持单态性，对你的大多数代码来说，或许根本不重要。在无所谓的优化之前，你应当细心衡量对比。</p>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/20/translation-react-polymorphism/" data-id="ckbs697qk002xrhjc7xt0zeni" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/React/">React</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/js底层/">js底层</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+        
+  <nav class="article-nav">
+    
+      <a href="/2018/11/21/css-Houdini/" class="article-nav-link">
+        <strong class="article-nav-caption">Newer</strong>
+        <div class="article-nav-title">
+          
+            CSS Houdini
+          
+        </div>
+      </a>
+    
+    
+      <a href="/2018/11/20/web-worker/" class="article-nav-link">
+        <strong class="article-nav-caption">Older</strong>
+        <div class="article-nav-title">【转载】浅谈 Web Worker</div>
+      </a>
+    
+  </nav>
+
+
+            
+
+                
+                    
+                        
+                            
+
+</article>
+</section>
+  <footer class="footer">
+  <div class="outer">
+    <div class="float-right">
+      <ul class="list-inline">
+  
+    <li><i class="fe fe-smile-alt"></i> <span id="busuanzi_value_site_uv"></span></li>
+  
+    <li><i class="fe fe-bookmark"></i> <span id="busuanzi_value_page_pv"></span></li>
+  
+</ul>
+    </div>
+    <ul class="list-inline">
+      <li>&copy; 2020 xqyoung&#39;s blog</li>
+      <li>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a></li>
+      <li>Theme  <a href="https://github.com/zhwangart/hexo-theme-ocean">Ocean</a></li>
+    </ul>
+  </div>
+</footer>
+
+</main>
+<aside class="sidebar">
+  <button class="navbar-toggle"></button>
+<nav class="navbar">
+  
+    <div class="logo">
+      <a href="/"><img src="/images/hexo.svg" alt="xqyoung&#39;s blog"></a>
+    </div>
+  
+  <ul class="nav nav-main">
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/">Home</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/archives">Archives</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/gallery">Gallery</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/about">About</a>
+      </li>
+    
+    <li class="nav-item">
+      <a class="nav-item-link nav-item-search" title="Search">
+        <i class="fe fe-search"></i>
+        Search
+      </a>
+    </li>
+  </ul>
+</nav>
+<nav class="navbar navbar-bottom">
+  <ul class="nav">
+    <li class="nav-item">
+      <div class="totop" id="totop">
+  <i class="fe fe-rocket"></i>
+</div>
+    </li>
+    <li class="nav-item">
+      
+        <a class="nav-item-link" target="_blank" href="/atom.xml" title="RSS Feed">
+          <i class="fe fe-feed"></i>
+        </a>
+      
+    </li>
+  </ul>
+</nav>
+<div class="search-form-wrap">
+  <div class="local-search local-search-plugin">
+  <input type="search" id="local-search-input" class="local-search-input" placeholder="Search...">
+  <div id="local-search-result" class="local-search-result"></div>
+</div>
+</div>
+</aside>
+<script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.justifiedGallery.min.js"></script>
+<script src="/js/lazyload.min.js"></script>
+<script src="/js/busuanzi-2.3.pure.min.js"></script>
+
+  <script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+  <script src="/js/tocbot.min.js"></script>
+  <script>
+    // Tocbot_v4.7.0  http://tscanlin.github.io/tocbot/
+    tocbot.init({
+      tocSelector: '.tocbot',
+      contentSelector: '.article-entry',
+      headingSelector: 'h1, h2, h3, h4, h5, h6',
+      hasInnerContainers: true,
+      scrollSmooth: true,
+      positionFixedSelector: '.tocbot',
+      positionFixedClass: 'is-position-fixed',
+      fixedSidebarOffset: 'auto',
+    });
+  </script>
+
+
+<script src="/js/ocean.js"></script>
+
+</body>
+</html>

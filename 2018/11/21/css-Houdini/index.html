@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  
+  
+    <meta name="description" content="forever young">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>
+    CSS Houdini |
+    
+    xqyoung&#39;s blog</title>
+  
+    <link rel="shortcut icon" href="/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+  
+    <link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+  
+  <script src="/js/pace.min.js"></script>
+</head>
+</html>
+<body>
+<main class="content">
+  <section class="outer">
+  <article id="post-css-Houdini" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h1 class="article-title" itemprop="name">
+      CSS Houdini
+    </h1>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/21/css-Houdini/" class="article-date">
+  <time datetime="2018-11-21T00:10:49.000Z" itemprop="datePublished">2018-11-21</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/css-进阶/">css 进阶</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+                            
+    <div class="tocbot"></div>
+
+
+
+
+
+                                
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <p>借用<a href="https://developers.google.com/web/updates/2016/05/houdini" target="_blank" rel="noopener">谷歌开发者文档</a>的比喻，CSS Houdini 允许你自己当一名魔术师——传统流程中，你改变了 css 的一个样式，可能整个页面的样式都大变样，但是你只能看着浏览器呈现这场魔法盛宴，自己无法参与。CSS Houdini 赋予了你魔术师的本领，你也可以参与浏览器处理样式和布局的流程。</p>
+<p>Houdini 是 W3C 新成立的一个任务小组，它的终极目标是实现 css 属性的完全兼容。Houdini 提出了一个前无古人的的设想：开放 CSS 的 API 给开发者，开发者可以通过这套接口自行扩展 CSS，并提供相应的工具允许开发者介入浏览器渲染引擎的样式和布局流程中。</p>
+<h3 id="规范"><a href="#规范" class="headerlink" title="规范"></a>规范</h3><h4 id="Worklets"><a href="#Worklets" class="headerlink" title="Worklets"></a>Worklets</h4><p>此规范定义了一个 API ，规范了渲染流程中的各个阶段运行的独立于主 javascript 执行环境的脚本。Worklets 的概念和 Web Worker 相似，它们允许你引入脚本文件并执行特定的 JS 代码。Worklets 和 Web Worker 有很多概念上的重叠，那么搞出一个 Worklets 是否多此一举？</p>
+<p>Worklets ，后缀 <code>-let</code> 已经表面了它的特性“小”。存在这种可能：脚本中某些代码片段，在每一帧都要跑一次。Web Worker 其实比较笨重，并不鼓励大量使用。举个例子，为一张四百万像素的图片的每一个像素启用一个 Web Worker 将是不妥当的。</p>
+<p>Worklets 定义了一个方法集合，这些方法的特性由 Worklets 的类型预定义了，开发者所能执行的操作类型被限定，这样就保证了性能。</p>
+<h4 id="CSS-Paint-API"><a href="#CSS-Paint-API" class="headerlink" title="CSS Paint API"></a>CSS Paint API</h4><p>Paint API 在 Chrome 65 默认开启支持，它也被称为 “Houdini’s paint worklet”，它允许 Web 开发人员使用 JavaScript 自定义 CSS <code>image</code>（背景，边框，内容），自定义的 <code>image</code> 会响应样式和尺寸的变化。 </p>
+<p>下面是<a href="https://developers.google.com/web/updates/2018/01/paintapi" target="_blank" rel="noopener">谷歌开发者文档</a>给的一个例子。</p>
+<p>在 Worklets 脚本文件中，先定义一个 CheckerboardPainter 的类，里面规定了画棋盘的方法。然后用 <code>registerPaint</code> 方法注册一个 paint worklet 类。这个 paint worklet 名为 checkerboard 。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// checkerboard.js</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">CheckerboardPainter</span> </span>&#123;</span><br><span class="line">  paint(ctx, geom, properties) &#123;</span><br><span class="line">    <span class="comment">// Use `ctx` as if it was a normal canvas</span></span><br><span class="line">    <span class="keyword">const</span> colors = [<span class="string">'red'</span>, <span class="string">'green'</span>, <span class="string">'blue'</span>];</span><br><span class="line">    <span class="keyword">const</span> size = <span class="number">32</span>;</span><br><span class="line">    <span class="keyword">for</span>(<span class="keyword">let</span> y = <span class="number">0</span>; y &lt; geom.height/size; y++) &#123;</span><br><span class="line">      <span class="keyword">for</span>(<span class="keyword">let</span> x = <span class="number">0</span>; x &lt; geom.width/size; x++) &#123;</span><br><span class="line">        <span class="keyword">const</span> color = colors[(x + y) % colors.length];</span><br><span class="line">        ctx.beginPath();</span><br><span class="line">        ctx.fillStyle = color;</span><br><span class="line">        ctx.rect(x * size, y * size, size, size);</span><br><span class="line">        ctx.fill();</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Register our class under a specific name</span></span><br><span class="line">registerPaint(<span class="string">'checkerboard'</span>, CheckerboardPainter);</span><br></pre></td></tr></table></figure>
+<p>在主 javaScript 环境中，用 <code>CSS.paintWorklet.addModule(&#39;checkerboard.js&#39;)</code> 加载这个 paint worklet ，然后在 css 属性值里面，可以调用 <code>paint(checkerboard)</code> ，就可以定义自己要的 css 背景/边框/内容 效果。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">&lt;!-- index.html --&gt;</span><br><span class="line">&lt;!doctype html&gt;</span><br><span class="line">&lt;style&gt;</span><br><span class="line">  textarea &#123;</span><br><span class="line">    background-image: paint(checkerboard);</span><br><span class="line">  &#125;</span><br><span class="line">&lt;<span class="regexp">/style&gt;</span></span><br><span class="line"><span class="regexp">&lt;textarea&gt;&lt;/</span>textarea&gt;</span><br><span class="line">&lt;script&gt;</span><br><span class="line">  CSS.paintWorklet.addModule(<span class="string">'checkerboard.js'</span>);</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
+<p><a href="https://googlechromelabs.github.io/houdini-samples/paint-worklet/checkerboard/" target="_blank" rel="noopener">在线 demo</a></p>
+<h4 id="Animation-Worklet"><a href="#Animation-Worklet" class="headerlink" title="Animation Worklet"></a>Animation Worklet</h4><p>Animation Worklet 是 Compositor Worklet 演化而来的。详细的资料看<a href="https://dassur.ma/things/animworklet/" target="_blank" rel="noopener">这里</a>。</p>
+<p>Compositor Worklet 允许开发者书写在合成器线程（compositor thread）。这将保证代码在每一帧运行，并且开启了一些新的可能性，例如强制实现一些和不是绑定在时间上的动画，比如输入或滚动位置。</p>
+<p>如果合成器线程阻塞了——因为代码计算量太大或者低效——那么整个页面将无法响应，动画也会卡住。</p>
+<p>Animation Worklet 不运行在合成器线程“上”，而是在“尽力而为”的基础上与它同步运行。这意味着，如果你在你的 worklet 中堵塞了，动画允许“溜走”。</p>
+<p>预计 Chrome 71 首次尝试支持 Animation Worklet，我写这篇文的时候，Chrome 71还未发布。Animation Worklet 的例子可以看<a href="https://developers.google.com/web/updates/2018/10/animation-worklet" target="_blank" rel="noopener"><br>Houdini’s Animation Worklet</a>。有 <a href="https://github.com/web-animations/web-animations-js" target="_blank" rel="noopener">polyfill</a> 提供一样的 API，但不提供一样的性能。</p>
+<h4 id="Layout-Worklet"><a href="#Layout-Worklet" class="headerlink" title="Layout Worklet"></a>Layout Worklet</h4><p>开发者可以自己定义一个布局，自定义盒子内元素的布局，然后用类似 <code>display: layout(myLayout)</code> 这样的规则应用自己的布局。这样的好处是：一方面当有新的布局出现的时候可以借助这个 API 进行 polyfill 就不用担心没有实现的浏览器不兼容，另一方面可以发挥想象力实现自己想要的布局，这样在布局上可能会百花齐放了，而不仅仅使用W3C给的那几种布局。</p>
+<h4 id="Typed-CSSOM"><a href="#Typed-CSSOM" class="headerlink" title="Typed CSSOM"></a>Typed CSSOM</h4><p>在 js 中修改一个 css 属性，可谓要翻山越岭：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$(<span class="string">'#someDiv'</span>).style.height = getRandomInt() + <span class="string">'px'</span>;</span><br></pre></td></tr></table></figure>
+<p>我们做了数学计算，把一个数字转成字符串并附加一个单位，浏览器再解析这个字符串，得到一个数字，再把这个数字交回给 CSS 引擎。</p>
+<p>有了类型化 CSS 对象模型，我们可以基于 StylePropertyMap 操作元素。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">&lt;div style=<span class="string">"width: 200px;"</span> id=<span class="string">"div1"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div style=<span class="string">"width: 300px;"</span> id=<span class="string">"div2"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div id=<span class="string">"div3"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div style=<span class="string">"margin-left: calc(5em + 50%);"</span> id=<span class="string">"div4"</span>&gt;&lt;/div&gt;</span><br><span class="line"><span class="keyword">var</span> w1 = $(<span class="string">'#div1'</span>).styleMap.get(<span class="string">'width'</span>);</span><br><span class="line"><span class="keyword">var</span> w2 = $(<span class="string">'#div2'</span>).styleMap.get(<span class="string">'width'</span>);</span><br><span class="line">$(<span class="string">'#div3'</span>).styleMap.set(<span class="string">'background-size'</span>,</span><br><span class="line">  [<span class="keyword">new</span> SimpleLength(<span class="number">200</span>, <span class="string">'px'</span>), w1.add(w2)])</span><br><span class="line">$(<span class="string">'#div4'</span>)).styleMap.get(<span class="string">'margin-left'</span>)</span><br><span class="line">  <span class="comment">// =&gt; &#123;em: 5, percent: 50&#125;</span></span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>参考文章<br><a href="https://zhuanlan.zhihu.com/p/20939640" target="_blank" rel="noopener">Houdini：CSS 领域最令人振奋的革新
+</a><br><a href="https://developers.google.com/web/updates/2016/05/houdini" target="_blank" rel="noopener">Houdini: Demystifying CSS</a></p>
+</blockquote>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/21/css-Houdini/" data-id="ckbs697pb0006rhjcw37rltq8" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/css/">css</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/浏览器/">浏览器</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+        
+  <nav class="article-nav">
+    
+      <a href="/2018/11/25/websocket-beginner/" class="article-nav-link">
+        <strong class="article-nav-caption">Newer</strong>
+        <div class="article-nav-title">
+          
+            初识 WebSocket
+          
+        </div>
+      </a>
+    
+    
+      <a href="/2018/11/20/translation-react-polymorphism/" class="article-nav-link">
+        <strong class="article-nav-caption">Older</strong>
+        <div class="article-nav-title">【译文】React 的多态性</div>
+      </a>
+    
+  </nav>
+
+
+            
+
+                
+                    
+                        
+                            
+
+</article>
+</section>
+  <footer class="footer">
+  <div class="outer">
+    <div class="float-right">
+      <ul class="list-inline">
+  
+    <li><i class="fe fe-smile-alt"></i> <span id="busuanzi_value_site_uv"></span></li>
+  
+    <li><i class="fe fe-bookmark"></i> <span id="busuanzi_value_page_pv"></span></li>
+  
+</ul>
+    </div>
+    <ul class="list-inline">
+      <li>&copy; 2020 xqyoung&#39;s blog</li>
+      <li>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a></li>
+      <li>Theme  <a href="https://github.com/zhwangart/hexo-theme-ocean">Ocean</a></li>
+    </ul>
+  </div>
+</footer>
+
+</main>
+<aside class="sidebar">
+  <button class="navbar-toggle"></button>
+<nav class="navbar">
+  
+    <div class="logo">
+      <a href="/"><img src="/images/hexo.svg" alt="xqyoung&#39;s blog"></a>
+    </div>
+  
+  <ul class="nav nav-main">
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/">Home</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/archives">Archives</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/gallery">Gallery</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/about">About</a>
+      </li>
+    
+    <li class="nav-item">
+      <a class="nav-item-link nav-item-search" title="Search">
+        <i class="fe fe-search"></i>
+        Search
+      </a>
+    </li>
+  </ul>
+</nav>
+<nav class="navbar navbar-bottom">
+  <ul class="nav">
+    <li class="nav-item">
+      <div class="totop" id="totop">
+  <i class="fe fe-rocket"></i>
+</div>
+    </li>
+    <li class="nav-item">
+      
+        <a class="nav-item-link" target="_blank" href="/atom.xml" title="RSS Feed">
+          <i class="fe fe-feed"></i>
+        </a>
+      
+    </li>
+  </ul>
+</nav>
+<div class="search-form-wrap">
+  <div class="local-search local-search-plugin">
+  <input type="search" id="local-search-input" class="local-search-input" placeholder="Search...">
+  <div id="local-search-result" class="local-search-result"></div>
+</div>
+</div>
+</aside>
+<script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.justifiedGallery.min.js"></script>
+<script src="/js/lazyload.min.js"></script>
+<script src="/js/busuanzi-2.3.pure.min.js"></script>
+
+  <script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+  <script src="/js/tocbot.min.js"></script>
+  <script>
+    // Tocbot_v4.7.0  http://tscanlin.github.io/tocbot/
+    tocbot.init({
+      tocSelector: '.tocbot',
+      contentSelector: '.article-entry',
+      headingSelector: 'h1, h2, h3, h4, h5, h6',
+      hasInnerContainers: true,
+      scrollSmooth: true,
+      positionFixedSelector: '.tocbot',
+      positionFixedClass: 'is-position-fixed',
+      fixedSidebarOffset: 'auto',
+    });
+  </script>
+
+
+<script src="/js/ocean.js"></script>
+
+</body>
+</html>

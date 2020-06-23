@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  
+  
+    <meta name="description" content="forever young">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>
+    浏览器事件机制 |
+    
+    xqyoung&#39;s blog</title>
+  
+    <link rel="shortcut icon" href="/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+  
+    <link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+  
+  <script src="/js/pace.min.js"></script>
+</head>
+</html>
+<body>
+<main class="content">
+  <section class="outer">
+  <article id="post-browser-dom-event" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h1 class="article-title" itemprop="name">
+      浏览器事件机制
+    </h1>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/20/browser-dom-event/" class="article-date">
+  <time datetime="2018-11-20T15:00:51.000Z" itemprop="datePublished">2018-11-20</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/浏览器/">浏览器</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+                            
+    <div class="tocbot"></div>
+
+
+
+
+
+                                
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <p>要知道浏览器是怎么接收输入（滚动，鼠标移动，input 事件，对浏览器来说都是输入），需要明白在页面的呈现的哪个步骤，对事件作出响应。</p>
+<p>简单讲一下页面呈现步骤：</p>
+<p>浏览器的 render process 构建了 DOM Tree，CCSOM tree ，它知道文档的结构以及每个节点的样式，但仅有这些信息不足以渲染一个页面。这时需要 layout process 去定位每个节点的几何信息（形状，位置），由 render process 提供的 DOM tree 和 CSSOM tree ，构建 layout tree （或者说 render tree）。下一步交给 painting process ，主线程遍历 layout tree ，创建画板记录（paint records）。画板记录就像是 painting process 中的一本笔记，记录着类似“先画背景，然后是文字，然后是矩形”的东西。</p>
+<p>现在浏览器知道了文档的结构，节点的样式，页面的几何信息，还有绘制顺序。把这些信息转化为屏幕上的像素的过程，叫做光栅化。</p>
+<p>比较傻瓜的方法是在浏览器的视口（viewport）里面做部分光栅化。如果用户滚动页面，把这个光栅往下挪，填充空缺的部分。Chrome 刚发布的那会就是用这种方式做光栅化的，现代浏览器则会启用一个更复杂的进程：compositing（合成）。</p>
+<p>compositing 进程把页面分为多个图层（layer），分隔地将它们光栅化，最后在合成器线程（compositor thread）中组成页面。图层可能很大，比如占据整个页面的长度，所以合成器线程会把它们分成一个个小瓦片，发送到多个光栅线程（raster threads）。光栅线程将每个瓦片光栅化（像素化），并储存在 GPU 内存中。</p>
+<blockquote>
+<p>在 chrome devTools 里面的 performance 可以看到，渲染一个页面的时候有多个 raster threads 参与。</p>
+</blockquote>
+<p>以上大概就是页面 layout –&gt; paint –&gt; composite 的过程，更多细节可以看 google developers 的文章 <a href="https://developers.google.com/web/updates/2018/09/inside-browser-part3" target="_blank" rel="noopener"><br>Inside look at modern web browser (part 3)</a></p>
+<hr>
+<p>好了，终于可以讲浏览器对输入的处理了：</p>
+<p>第一个接收到用户手势（触屏，点击，滑动…）的是浏览器进程（UI 线程？），浏览器进程会把这个手势的事件类型，坐标发送到渲染进程。渲染进程找到事件目标，执行对应的监听。</p>
+<p>执行 JavaScript 是主线程（main thread）的主要工作，当一个页面经由合成器线程合成后，合成器线程会把绑定了监听事件的区域标记为 “Non-Fast Scrollable Region” 。如果注册的事件在这个区域上触发，合成器线程确保把事件发送到主线程。如果事件发生在这个区域外，合成器线程继续合成新的帧，而不用等待主线程。</p>
+<p>我们知道事件代理模式。事件可以冒泡，那么可以在最最底部的元素上绑定事件，比如如下代码：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>,  event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault();</span><br><span class="line">    &#125;</span><br><span class="line">&#125; );</span><br></pre></td></tr></table></figure>
+<p>看起来只需要注册一次事件，就可以代理所有发生在它子代上面的事件，似乎很诱人。但是在浏览器的角度，整个页面被标记为 non-fast scrollable region ，这意味着，尽管你的应用可能不在意页面一些区域的输入，合成器线程还是需要和主线程通信，每次都要等待输入。所以合成器的“顺畅滚动“能力用不上了。</p>
+<p>可以向事件监听传入参数 <code>passive: true</code> ，这告诉浏览器：你还是想要在主线程上监听事件，但是合成器线程仍继续合成帧。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>,  event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault()</span><br><span class="line">    &#125;</span><br><span class="line"> &#125;, &#123;<span class="attr">passive</span>: <span class="literal">true</span>&#125; );</span><br></pre></td></tr></table></figure>
+<h3 id="事件触发的三个阶段"><a href="#事件触发的三个阶段" class="headerlink" title="事件触发的三个阶段"></a>事件触发的三个阶段</h3><p>本节部分转载自： <a href="https://yuchengkai.cn/docs/zh/frontend/browser.html#%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6" target="_blank" rel="noopener">https://yuchengkai.cn/docs/zh/frontend/browser.html#%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6</a></p>
+<p>事件触发有三个阶段</p>
+<ul>
+<li>window 往事件触发处传播，遇到注册的捕获事件会触发</li>
+<li>传播到事件触发处时触发注册的事件</li>
+<li>从事件触发处往 window 传播，遇到注册的冒泡事件会触发</li>
+</ul>
+<p>事件触发一般按照上面的顺序，但是有例外：如果为同一个元素同时注册了捕获事件和冒泡事件，事件会按照注册的顺序触发。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 以下会先打印冒泡然后是捕获</span></span><br><span class="line">node.addEventListener(<span class="string">'click'</span>,(event) =&gt;&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'冒泡'</span>)</span><br><span class="line">&#125;,<span class="literal">false</span>);</span><br><span class="line">node.addEventListener(<span class="string">'click'</span>,(event) =&gt;&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'捕获 '</span>)</span><br><span class="line">&#125;,<span class="literal">true</span>)</span><br></pre></td></tr></table></figure>
+<h3 id="注册事件"><a href="#注册事件" class="headerlink" title="注册事件"></a>注册事件</h3><p>一般用 <a href="https://developer.mozilla.org/zh-CN/docs/Web/API/EventTarget/addEventListener" target="_blank" rel="noopener">EventTarget.addEventListener()</a>，当然 ie 老古董自行用 <code>onEvent = function(){ ... }</code> 方式。</p>
+<p>addEventListener 函数的第三个参数可以是布尔值，也可以是对象。对于布尔值 useCapture 参数来说，该参数默认值为 false 。useCapture 决定了注册的事件是捕获事件还是冒泡事件。缺省情况下注册冒泡事件。</p>
+<p>对于对象参数来说，可以使用以下几个属性</p>
+<ul>
+<li>capture，布尔值，和 useCapture 作用一样</li>
+<li>once，布尔值，值为 true 表示该回调只会调用一次，调用后会移除监听</li>
+<li>passive，布尔值，表示永远不会调用 <a href="https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault" target="_blank" rel="noopener">preventDefault</a></li>
+</ul>
+<p>capture 和 once 都比较好理解。下面讲一下 preventDefault ：</p>
+<p>preventDefault 告诉浏览器：如果此事件没有需要显式处理，那么它默认的动作也不要做（因为默认是要做的）。此事件还是继续传播，除非碰到事件侦听器调用stopPropagation() 或stopImmediatePropagation()，才停止传播。</p>
+<p>这里我们可以看到 preventDefault 的作用：开发者可以在监听 touch 和 wheel 事件时指定 <code>{passive:true}</code> 来表明他们不会调用preventDefault。也就是说，默认的滚动事件还是要做的，而且永远不会被禁用，从而获得更好的滚动性能。归根结底是合成器线程无需等待主线程，继续合成帧。</p>
+<p>更多阅读移步 <a href="https://github.com/WICG/EventListenerOptions/blob/gh-pages/explainer.md" target="_blank" rel="noopener">Passive event listeners</a> <a href="https://futu.im/posts/2017-06-06-passive-event-listeners/" target="_blank" rel="noopener">翻译版</a></p>
+<h3 id="事件代理"><a href="#事件代理" class="headerlink" title="事件代理"></a>事件代理</h3><p>如果一个节点中的子节点是动态生成的，那么子节点需要注册事件的话应该注册在父节点上</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">&lt;ul id=<span class="string">"ul"</span>&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">1</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">    &lt;li&gt;2&lt;/</span>li&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">3</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">    &lt;li&gt;4&lt;/</span>li&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">5</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">&lt;/u</span>l&gt;</span><br><span class="line">&lt;script&gt;</span><br><span class="line">    <span class="keyword">let</span> ul = <span class="built_in">document</span>.querySelector(<span class="string">'##ul'</span>)</span><br><span class="line">    ul.addEventListener(<span class="string">'click'</span>, (event) =&gt; &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(event.target);</span><br><span class="line">    &#125;)</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
+<p>事件代理的方式相对于直接给目标注册事件来说，有以下优点</p>
+<ul>
+<li>节省内存</li>
+<li>不需要给子节点注销事件</li>
+</ul>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/20/browser-dom-event/" data-id="ckbs697p80005rhjcc5e6p2qy" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/优化/">优化</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/浏览器/">浏览器</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+        
+  <nav class="article-nav">
+    
+      <a href="/2018/11/20/http-and-https/" class="article-nav-link">
+        <strong class="article-nav-caption">Newer</strong>
+        <div class="article-nav-title">
+          
+            抓包详解 HTTPS 过程
+          
+        </div>
+      </a>
+    
+    
+      <a href="/2018/11/20/cookie-base-concept/" class="article-nav-link">
+        <strong class="article-nav-caption">Older</strong>
+        <div class="article-nav-title">cookie 基础概念</div>
+      </a>
+    
+  </nav>
+
+
+            
+
+                
+                    
+                        
+                            
+
+</article>
+</section>
+  <footer class="footer">
+  <div class="outer">
+    <div class="float-right">
+      <ul class="list-inline">
+  
+    <li><i class="fe fe-smile-alt"></i> <span id="busuanzi_value_site_uv"></span></li>
+  
+    <li><i class="fe fe-bookmark"></i> <span id="busuanzi_value_page_pv"></span></li>
+  
+</ul>
+    </div>
+    <ul class="list-inline">
+      <li>&copy; 2020 xqyoung&#39;s blog</li>
+      <li>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a></li>
+      <li>Theme  <a href="https://github.com/zhwangart/hexo-theme-ocean">Ocean</a></li>
+    </ul>
+  </div>
+</footer>
+
+</main>
+<aside class="sidebar">
+  <button class="navbar-toggle"></button>
+<nav class="navbar">
+  
+    <div class="logo">
+      <a href="/"><img src="/images/hexo.svg" alt="xqyoung&#39;s blog"></a>
+    </div>
+  
+  <ul class="nav nav-main">
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/">Home</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/archives">Archives</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/gallery">Gallery</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/about">About</a>
+      </li>
+    
+    <li class="nav-item">
+      <a class="nav-item-link nav-item-search" title="Search">
+        <i class="fe fe-search"></i>
+        Search
+      </a>
+    </li>
+  </ul>
+</nav>
+<nav class="navbar navbar-bottom">
+  <ul class="nav">
+    <li class="nav-item">
+      <div class="totop" id="totop">
+  <i class="fe fe-rocket"></i>
+</div>
+    </li>
+    <li class="nav-item">
+      
+        <a class="nav-item-link" target="_blank" href="/atom.xml" title="RSS Feed">
+          <i class="fe fe-feed"></i>
+        </a>
+      
+    </li>
+  </ul>
+</nav>
+<div class="search-form-wrap">
+  <div class="local-search local-search-plugin">
+  <input type="search" id="local-search-input" class="local-search-input" placeholder="Search...">
+  <div id="local-search-result" class="local-search-result"></div>
+</div>
+</div>
+</aside>
+<script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.justifiedGallery.min.js"></script>
+<script src="/js/lazyload.min.js"></script>
+<script src="/js/busuanzi-2.3.pure.min.js"></script>
+
+  <script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+  <script src="/js/tocbot.min.js"></script>
+  <script>
+    // Tocbot_v4.7.0  http://tscanlin.github.io/tocbot/
+    tocbot.init({
+      tocSelector: '.tocbot',
+      contentSelector: '.article-entry',
+      headingSelector: 'h1, h2, h3, h4, h5, h6',
+      hasInnerContainers: true,
+      scrollSmooth: true,
+      positionFixedSelector: '.tocbot',
+      positionFixedClass: 'is-position-fixed',
+      fixedSidebarOffset: 'auto',
+    });
+  </script>
+
+
+<script src="/js/ocean.js"></script>
+
+</body>
+</html>

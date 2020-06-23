@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  
+  
+    <meta name="description" content="forever young">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>
+    async/await 异步队列 vs Promise 异步队列 |
+    
+    xqyoung&#39;s blog</title>
+  
+    <link rel="shortcut icon" href="/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+  
+    <link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+  
+  <script src="/js/pace.min.js"></script>
+</head>
+</html>
+<body>
+<main class="content">
+  <section class="outer">
+  <article id="post-async-await-and-promise" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h1 class="article-title" itemprop="name">
+      async/await 异步队列 vs Promise 异步队列
+    </h1>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2018/11/20/async-await-and-promise/" class="article-date">
+  <time datetime="2018-11-20T12:01:05.000Z" itemprop="datePublished">2018-11-20</time>
+</a>
+                            
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/js-基础/">js 基础</a>
+  </div>
+
+                    </div>
+                    
+
+                        
+                            
+    <div class="tocbot"></div>
+
+
+
+
+
+                                
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <p>我在上一篇<a href="https://www.xqyoung.com/2018/11/20/promise-async-then-chain/">Promise 异步编程</a>里面，提到了一个面试题：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> timeout = <span class="function"><span class="params">ms</span> =&gt;</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function">(<span class="params">resolve, reject</span>) =&gt;</span> &#123;</span><br><span class="line">    setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">        resolve();</span><br><span class="line">    &#125;, ms);</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> ajax1 = <span class="function"><span class="params">()</span> =&gt;</span> timeout(<span class="number">2000</span>).then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'1'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> ajax2 = <span class="function"><span class="params">()</span> =&gt;</span> timeout(<span class="number">1000</span>).then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'2'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">2</span>;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> ajax3 = <span class="function"><span class="params">()</span> =&gt;</span> timeout(<span class="number">2000</span>).then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'3'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">3</span>;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mergePromise</span>(<span class="params">ajaxArray</span>) </span>&#123;</span><br><span class="line"><span class="comment">//todo 补全函数</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">mergePromise([ajax1, ajax2, ajax3]).then(<span class="function"><span class="params">data</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'done'</span>);</span><br><span class="line">    <span class="built_in">console</span>.log(data); <span class="comment">// data 为 [1, 2, 3]</span></span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 分别输出</span></span><br><span class="line"><span class="comment">// 1</span></span><br><span class="line"><span class="comment">// 2</span></span><br><span class="line"><span class="comment">// 3</span></span><br><span class="line"><span class="comment">// done</span></span><br><span class="line"><span class="comment">// [1, 2, 3]</span></span><br></pre></td></tr></table></figure>
+<p>实现方法，我用了 promise ：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mergePromise</span>(<span class="params">ajaxArray</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">let</span> result = [];</span><br><span class="line">  <span class="keyword">let</span> p = <span class="built_in">Promise</span>.resolve();</span><br><span class="line">  ajaxArray.forEach(<span class="function">(<span class="params">ajax</span>) =&gt;</span> &#123;</span><br><span class="line">    p = p.then(ajax).then(<span class="function">(<span class="params">data</span>) =&gt;</span> &#123;</span><br><span class="line">      result.push(data)</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;);</span><br><span class="line">  <span class="keyword">return</span> p.then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>为了保持异步队列按顺序调用，我们要维护一条 promise 链，一般就是在函数作用域内生成一个 resolved 的 <code>Promise.resolve()</code>，然后在它后面接上 then 链。于是我们还要分析，then 的回调是不是返回一个异步 resolve 的 promise ？后面需不需要再接上一条 then 的尾巴，以接收异步 resolve 的结果？</p>
+<p>promise 不好读，因为 promise 基本是 try、catch 和 return 之类的语言原语的替代品。</p>
+<p>我用 async/await 改写一下：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mergePromise</span>(<span class="params">ajaxArray</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">let</span> result = [];</span><br><span class="line">  <span class="keyword">async</span> <span class="function"><span class="keyword">function</span> <span class="title">run</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> fn <span class="keyword">of</span> ajaxArray) &#123;</span><br><span class="line">      <span class="keyword">let</span> data = <span class="keyword">await</span> fn();</span><br><span class="line">      result.push(data);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> run().then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在循环里面，我们可以像写同步代码一样写异步代码，await 一个异步结果。</p>
+<h3 id="generator-函数"><a href="#generator-函数" class="headerlink" title="generator 函数"></a>generator 函数</h3><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/function*" target="_blank" rel="noopener">生成器函数</a>在执行时能暂停，后面又能从暂停处继续执行。</p>
+<p>调用一个生成器函数并不会马上执行它里面的语句，而是返回一个这个生成器的 迭代器 （iterator ）对象。当这个迭代器的 next() 方法被首次（后续）调用时，其内的语句会执行到第一个（后续）出现yield的位置为止，yield 后紧跟迭代器要返回的值。或者如果用的是 yield*（多了个星号），则表示将执行权移交给另一个生成器函数（当前生成器暂停执行）。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> *<span class="title">gen</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="keyword">yield</span> <span class="number">10</span>;</span><br><span class="line">    y=<span class="keyword">yield</span> <span class="string">'foo'</span>;</span><br><span class="line">    <span class="keyword">yield</span> y;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> g=gen();</span><br><span class="line"><span class="built_in">console</span>.log(g.next());<span class="comment">// 执行 yield 10，返回 10</span></span><br><span class="line"><span class="built_in">console</span>.log(g.next());<span class="comment">// 执行 yield 'foo'，返回 'foo'</span></span><br><span class="line"><span class="built_in">console</span>.log(g.next(<span class="number">10</span>));<span class="comment">// 将 10 赋给上一条 yield 'foo' 的左值，即执行 y=10，返回 10</span></span><br><span class="line"><span class="built_in">console</span>.log(g.next());<span class="comment">// 执行完毕，value 为 undefined，done 为 true</span></span><br></pre></td></tr></table></figure>
+<p>更多例子查看 <a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/function*" target="_blank" rel="noopener">MDN 生成器函数</a></p>
+<h4 id="generator-异步队列"><a href="#generator-异步队列" class="headerlink" title="generator 异步队列"></a>generator 异步队列</h4><p>以上面的代码为例，每次调用 <code>g.next()</code> 会走到下一个 yield 语句，对 yield 语句后面对表达式求值，并且返回形如 <code>{value: someValue, done: false}</code> 的对象，我们希望在生成器函数里面可以像写同步代码一样，yield 一个异步结果。那么 yield 应该返回一个 Promise 实例，通过控制 g.next() 的执行，只有在上一个 yield 返回的 promise resolve/reject 之后，才调用 g.next() 走到下一个 yield 语句。</p>
+<p>我们先有一系列的 promise ，它们是要被异步执行的。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> asyncPromise = <span class="function">(<span class="params">x</span>) =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function"><span class="params">resolve</span> =&gt;</span> &#123;</span><br><span class="line">    setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">      resolve(x + <span class="number">1</span>);</span><br><span class="line">    &#125;, <span class="number">1000</span>)</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span>* <span class="title">gen</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> data1 = <span class="keyword">yield</span> asyncPromise(<span class="number">1</span>);</span><br><span class="line">  <span class="built_in">console</span>.log(data1);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data2 = <span class="keyword">yield</span> asyncPromise(data1);</span><br><span class="line">  <span class="built_in">console</span>.log(data2);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data3 = <span class="keyword">yield</span> asyncPromise(data2);</span><br><span class="line">  <span class="built_in">console</span>.log(data3);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后我们需要一个控制函数，它接受 gen 作为函数，控制执行流程。</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> carryPromise = <span class="function"><span class="keyword">function</span>(<span class="params">gen</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function">(<span class="params">resolve, reject</span>) =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">const</span> g = gen();</span><br><span class="line">    <span class="keyword">const</span> next = <span class="function">(<span class="params">data</span>) =&gt;</span> &#123;</span><br><span class="line">      <span class="keyword">const</span> ret = g.next(data);</span><br><span class="line">      <span class="comment">// 走到最后一个 yield 语句，最好把最后一个值传递下去</span></span><br><span class="line">      <span class="keyword">if</span> (ret.done) &#123;</span><br><span class="line">        resolve(data);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="comment">// ret.value 其实是一个 promise</span></span><br><span class="line">      <span class="comment">// 这里为刚刚生成的 promise 注册 then 回调，回调的操作是注册下一个 promise</span></span><br><span class="line">      ret.value.then(<span class="function">(<span class="params">data</span>) =&gt;</span> &#123;</span><br><span class="line">        next(data);</span><br><span class="line">        <span class="comment">// 上面这句换成</span></span><br><span class="line">        <span class="comment">// return next(data);</span></span><br><span class="line">        <span class="comment">// 结果也是一样的，就和 Promise 链式调用一样了</span></span><br><span class="line">        <span class="comment">// 只不过实现上，更偏向控制 g.next() 的移动，来实现 promise 的注册</span></span><br><span class="line">      &#125;)</span><br><span class="line">    &#125;</span><br><span class="line">    next();</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>看一下执行结果：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">carryPromise(gen).then(<span class="function">(<span class="params">value</span>) =&gt;</span> &#123;</span><br><span class="line">  setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">`end with: <span class="subst">$&#123;value&#125;</span>`</span>);</span><br><span class="line">  &#125;, <span class="number">1000</span>)</span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 每项输出前间隔 1 s</span></span><br><span class="line"><span class="comment">// 2</span></span><br><span class="line"><span class="comment">// 3</span></span><br><span class="line"><span class="comment">// 4</span></span><br><span class="line"><span class="comment">// end with 4</span></span><br></pre></td></tr></table></figure>
+<p>用 generator 实现的异步队列，跟 Promise 的 then 链式回调有些相似，一样是在 promise 的 then 回调里面创建新的 promise ，不一样的是，链式回调的 then 回调里面要 return 这个新的 promise，值才会沿着 then 链传递下去。而 generator 赋给了我们从“外部读取异步结果的能力”，例如 <code>const data1 = yield asyncPromise(1);</code> 。</p>
+<h3 id="async-await"><a href="#async-await" class="headerlink" title="async/await"></a>async/await</h3><p>首先搞清楚，async 关键字后面跟一个函数，await 关键字后面跟一个表达式，表达式应该是一个 Promise 对象或者任何要等待的值。</p>
+<p>当调用一个 async 函数时，会返回一个 Promise 对象。当这个 async 函数返回一个值时，Promise 的 resolve 方法会负责传递这个值；当 async 函数抛出异常时，Promise 的 reject 方法也会传递这个异常值。</p>
+<p>async 函数中可能会有 await 表达式，这会使 async 函数暂停执行，等待表达式中的 Promise 执行完成后才会继续执行 async 函数并返回解决结果。</p>
+<p>更多关于 async function，查看 <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function" target="_blank" rel="noopener">MDN async function</a></p>
+<p>用 async/await 改写 generator 实现的异步队列：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">function</span> <span class="title">fn</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> data1 = <span class="keyword">await</span> asyncPromise(<span class="number">1</span>);</span><br><span class="line">  <span class="built_in">console</span>.log(data1);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data2 = <span class="keyword">await</span> asyncPromise(data1);</span><br><span class="line">  <span class="built_in">console</span>.log(data2);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data3 = <span class="keyword">await</span> asyncPromise(data2);</span><br><span class="line">  <span class="built_in">console</span>.log(data3);</span><br><span class="line">  <span class="keyword">return</span> data3;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> p = fn().then(<span class="function">(<span class="params">value</span>) =&gt;</span> &#123;</span><br><span class="line">  setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">`end with <span class="subst">$&#123;value&#125;</span>`</span>)</span><br><span class="line">  &#125;, <span class="number">1000</span>);</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<p>async function 的返回值将被隐式地传递给 Promise.resolve。</p>
+<blockquote>
+<p>参考文章 </p>
+<p><a href="https://pouchdb.com/2015/03/05/taming-the-async-beast-with-es7.html" target="_blank" rel="noopener">Taming the asynchronous beast with ES7</a></p>
+<p><a href="https://juejin.im/post/59cce36751882501c14db49c" target="_blank" rel="noopener">JavaScript 异步队列实现及拓展</a></p>
+</blockquote>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2018/11/20/async-await-and-promise/" data-id="ckbs697p00000rhjck5d1twd6" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/js/">js</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/异步编程/">异步编程</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+        
+  <nav class="article-nav">
+    
+      <a href="/2018/11/20/currying/" class="article-nav-link">
+        <strong class="article-nav-caption">Newer</strong>
+        <div class="article-nav-title">
+          
+            函数柯里化
+          
+        </div>
+      </a>
+    
+    
+      <a href="/2018/11/20/promise-async-then-chain/" class="article-nav-link">
+        <strong class="article-nav-caption">Older</strong>
+        <div class="article-nav-title">Promise 异步队列</div>
+      </a>
+    
+  </nav>
+
+
+            
+
+                
+                    
+                        
+                            
+
+</article>
+</section>
+  <footer class="footer">
+  <div class="outer">
+    <div class="float-right">
+      <ul class="list-inline">
+  
+    <li><i class="fe fe-smile-alt"></i> <span id="busuanzi_value_site_uv"></span></li>
+  
+    <li><i class="fe fe-bookmark"></i> <span id="busuanzi_value_page_pv"></span></li>
+  
+</ul>
+    </div>
+    <ul class="list-inline">
+      <li>&copy; 2020 xqyoung&#39;s blog</li>
+      <li>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a></li>
+      <li>Theme  <a href="https://github.com/zhwangart/hexo-theme-ocean">Ocean</a></li>
+    </ul>
+  </div>
+</footer>
+
+</main>
+<aside class="sidebar">
+  <button class="navbar-toggle"></button>
+<nav class="navbar">
+  
+    <div class="logo">
+      <a href="/"><img src="/images/hexo.svg" alt="xqyoung&#39;s blog"></a>
+    </div>
+  
+  <ul class="nav nav-main">
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/">Home</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/archives">Archives</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/gallery">Gallery</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/about">About</a>
+      </li>
+    
+    <li class="nav-item">
+      <a class="nav-item-link nav-item-search" title="Search">
+        <i class="fe fe-search"></i>
+        Search
+      </a>
+    </li>
+  </ul>
+</nav>
+<nav class="navbar navbar-bottom">
+  <ul class="nav">
+    <li class="nav-item">
+      <div class="totop" id="totop">
+  <i class="fe fe-rocket"></i>
+</div>
+    </li>
+    <li class="nav-item">
+      
+        <a class="nav-item-link" target="_blank" href="/atom.xml" title="RSS Feed">
+          <i class="fe fe-feed"></i>
+        </a>
+      
+    </li>
+  </ul>
+</nav>
+<div class="search-form-wrap">
+  <div class="local-search local-search-plugin">
+  <input type="search" id="local-search-input" class="local-search-input" placeholder="Search...">
+  <div id="local-search-result" class="local-search-result"></div>
+</div>
+</div>
+</aside>
+<script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.justifiedGallery.min.js"></script>
+<script src="/js/lazyload.min.js"></script>
+<script src="/js/busuanzi-2.3.pure.min.js"></script>
+
+  <script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+  <script src="/js/tocbot.min.js"></script>
+  <script>
+    // Tocbot_v4.7.0  http://tscanlin.github.io/tocbot/
+    tocbot.init({
+      tocSelector: '.tocbot',
+      contentSelector: '.article-entry',
+      headingSelector: 'h1, h2, h3, h4, h5, h6',
+      hasInnerContainers: true,
+      scrollSmooth: true,
+      positionFixedSelector: '.tocbot',
+      positionFixedClass: 'is-position-fixed',
+      fixedSidebarOffset: 'auto',
+    });
+  </script>
+
+
+<script src="/js/ocean.js"></script>
+
+</body>
+</html>
