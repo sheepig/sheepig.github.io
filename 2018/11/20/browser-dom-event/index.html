@@ -89,10 +89,10 @@
 <p>第一个接收到用户手势（触屏，点击，滑动…）的是浏览器进程（UI 线程？），浏览器进程会把这个手势的事件类型，坐标发送到渲染进程。渲染进程找到事件目标，执行对应的监听。</p>
 <p>执行 JavaScript 是主线程（main thread）的主要工作，当一个页面经由合成器线程合成后，合成器线程会把绑定了监听事件的区域标记为 “Non-Fast Scrollable Region” 。如果注册的事件在这个区域上触发，合成器线程确保把事件发送到主线程。如果事件发生在这个区域外，合成器线程继续合成新的帧，而不用等待主线程。</p>
 <p>我们知道事件代理模式。事件可以冒泡，那么可以在最最底部的元素上绑定事件，比如如下代码：</p>
-<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>,  event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault();</span><br><span class="line">    &#125;</span><br><span class="line">&#125; );</span><br></pre></td></tr></table></figure>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>, event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
 <p>看起来只需要注册一次事件，就可以代理所有发生在它子代上面的事件，似乎很诱人。但是在浏览器的角度，整个页面被标记为 non-fast scrollable region ，这意味着，尽管你的应用可能不在意页面一些区域的输入，合成器线程还是需要和主线程通信，每次都要等待输入。所以合成器的“顺畅滚动“能力用不上了。</p>
 <p>可以向事件监听传入参数 <code>passive: true</code> ，这告诉浏览器：你还是想要在主线程上监听事件，但是合成器线程仍继续合成帧。</p>
-<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>,  event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault()</span><br><span class="line">    &#125;</span><br><span class="line"> &#125;, &#123;<span class="attr">passive</span>: <span class="literal">true</span>&#125; );</span><br></pre></td></tr></table></figure>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>, event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault()</span><br><span class="line">    &#125;</span><br><span class="line"> &#125;, &#123;<span class="attr">passive</span>: <span class="literal">true</span>&#125;);</span><br></pre></td></tr></table></figure>
 <h3 id="事件触发的三个阶段"><a href="#事件触发的三个阶段" class="headerlink" title="事件触发的三个阶段"></a>事件触发的三个阶段</h3><p>本节部分转载自： <a href="https://yuchengkai.cn/docs/zh/frontend/browser.html#%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6" target="_blank" rel="noopener">https://yuchengkai.cn/docs/zh/frontend/browser.html#%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6</a></p>
 <p>事件触发有三个阶段</p>
 <ul>
@@ -125,7 +125,7 @@
                                                                         
                                     </div>
                                     <footer class="article-footer">
-                                        <a data-url="http://www.xqyoung.com/2018/11/20/browser-dom-event/" data-id="ckciy9esw000251jbpy6l7pty" class="article-share-link">
+                                        <a data-url="http://www.xqyoung.com/2018/11/20/browser-dom-event/" data-id="ckcj6cdch0006uijb4w837s96" class="article-share-link">
                                             Share
                                         </a>
                                         
@@ -205,11 +205,11 @@
       </li>
     
       <li class="nav-item">
-        <a class="nav-item-link" href="/gallery">Gallery</a>
+        <a class="nav-item-link" href="/categories">Categories</a>
       </li>
     
       <li class="nav-item">
-        <a class="nav-item-link" href="/about">About</a>
+        <a class="nav-item-link" href="/tags">Tags</a>
       </li>
     
     <li class="nav-item">
@@ -269,6 +269,7 @@
 
 
 <script src="/js/ocean.js"></script>
+<script src="/js/search.js"></script>
 
 </body>
 </html>
