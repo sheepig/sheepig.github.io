@@ -99,11 +99,11 @@
 <li>用户输入过滤。对用户提交的数据进行有效性验证，仅接受指定长度范围内并符合我们期望格式的的内容提交，阻止或者忽略除此外的其他任何数据</li>
 <li>用户输出转义，当需要将一个字符串输出到Web网页时，同时又不确定这个字符串中是否包括XSS特殊字符，为了确保输出内容的完整性和正确性，输出HTML属性时可以使用HTML转义编码（HTMLEncode）进行处理，输出到 <code>&lt;script&gt;</code> 中，可以进行JS编码。现在主流框架 Vue，React，或者衍生的 UI 框架，其实都有对输入输出做 XSS 防范。</li>
 <li>将重要的cookie标记为httponly，这样的话当浏览器向Web服务器发起请求的时就会带上cookie字段，但是在js脚本中却不能访问这个cookie，这样就避免了XSS攻击利用JavaScript的document.cookie获取cookie。【这种方法其实不是避免 XSS ，只是减小了可能的危害】</li>
-<li><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/CSP" target="_blank" rel="noopener">CSP</a>指定页面有哪些资源允许有哪些来源，可以通过请求头的<code>Content-Security-Policy</code>头部，或html文档的meta标签实现。如下是掘金某篇博文的html文档header。<br><img src="./xss-and-csrf/xss1.png" alt=""></p>
+<li><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/CSP" target="_blank" rel="noopener">CSP</a>指定页面有哪些资源允许有哪些来源，可以通过请求头的<code>Content-Security-Policy</code>头部，或html文档的meta标签实现。如下是掘金某篇博文的html文档header。<br><img src="xss1.png" alt=""></p>
 </li>
 <li><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/Security/%E5%AD%90%E8%B5%84%E6%BA%90%E5%AE%8C%E6%95%B4%E6%80%A7" target="_blank" rel="noopener">SRI</a>在第三方 CDN 服务被入侵或回源被运营商劫持、文件内容被加入恶意代码时，网站如果启用了 SRI 策略，那么在支持 SRI 的浏览器下，被篡改的文件无法执行。</p>
 <ul>
-<li>对外链资源（这里是script，当然link标签也可以）使用特定算法A生成一个哈希值B，B经base64编码得到C.将<code>${A}-${C}</code><br>注入到script标签的<code>integrity</code>属性。例如：github的SRI策略<br><img src="./xss-and-csrf/SRI.png" alt=""><br>上图<code>sha512</code>是使用的哈希算法。 <code>-</code>后面的是编码后的哈希值。浏览器发现script标签有integrity属性，会用<code>sha512</code>计算这个script文件的哈希值，并base64编码后，和integrity的编码结果做比较。只有完全匹配才会通过校验并加载资源</li>
+<li>对外链资源（这里是script，当然link标签也可以）使用特定算法A生成一个哈希值B，B经base64编码得到C.将<code>${A}-${C}</code><br>注入到script标签的<code>integrity</code>属性。例如：github的SRI策略<br><img src="SRI.png" alt=""><br>上图<code>sha512</code>是使用的哈希算法。 <code>-</code>后面的是编码后的哈希值。浏览器发现script标签有integrity属性，会用<code>sha512</code>计算这个script文件的哈希值，并base64编码后，和integrity的编码结果做比较。只有完全匹配才会通过校验并加载资源</li>
 <li>SRI是一种“宁为玉碎，不为瓦全”的态度了，但是如果重要脚本被劫持而无法执行，可能会使得整站功能不可用。可以使用fallback方法，改为加载本站资源</li>
 </ul>
 </li>
@@ -153,7 +153,7 @@
                                                                         
                                     </div>
                                     <footer class="article-footer">
-                                        <a data-url="http://www.xqyoung.com/2020/07/12/xss-and-csrf/" data-id="ckcixxp3k001xybjbtjek8j1z" class="article-share-link">
+                                        <a data-url="http://www.xqyoung.com/2020/07/12/xss-and-csrf/" data-id="ckciy9etv001k51jbc9zk30yz" class="article-share-link">
                                             Share
                                         </a>
                                         

