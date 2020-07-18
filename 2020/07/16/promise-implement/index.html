@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="utf-8">
+  
+  
+  
+    <meta name="description" content="forever young">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>
+    实现promise |
+    
+    xqyoung&#39;s blog</title>
+  
+    <link rel="shortcut icon" href="/favicon.ico">
+  
+  <link rel="stylesheet" href="/css/style.css">
+  
+    <link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+  
+  <script src="/js/pace.min.js"></script>
+</head>
+</html>
+<body>
+<main class="content">
+  <section class="outer">
+  <article id="post-promise-implement" class="article article-type-post" itemscope="" itemprop="blogPost" data-scroll-reveal="">
+
+    <div class="article-inner">
+        
+            <header class="article-header">
+                
+  
+    <h1 class="article-title" itemprop="name">
+      实现promise
+    </h1>
+  
+  
+
+
+
+
+            </header>
+            
+
+                
+                    <div class="article-meta">
+                        <a href="/2020/07/16/promise-implement/" class="article-date">
+  <time datetime="2020-07-16T16:52:18.000Z" itemprop="datePublished">2020-07-16</time>
+</a>
+                            
+                    </div>
+                    
+
+                        
+                            
+    <div class="tocbot"></div>
+
+
+
+
+
+                                
+
+                                    <div class="article-entry" itemprop="articleBody">
+                                        
+
+
+                                            
+
+                                                
+                                                                    <p>网上关于如何实现promise的文章可以说是满天飞了，之前也<a href="https://www.xqyoung.com/2018/11/20/promise-lie/#Promise-A">翻译过Promise A+规范</a>。今天的文章主要是实现一个简易版的promise，其中的接口按照Promise A+规范来，在手写代码过程中，发现Promise A+规范的对变量乃至函数接口的命名，是非常恰当的。</p>
+<h2 id="初级版"><a href="#初级版" class="headerlink" title="初级版"></a>初级版</h2><p>这一步只实现3个东西：Promise对象、then方法、还有一个叫Promise Resolution Procedure的东西。</p>
+<p>其实规范只规定了这三个东西，前两者好理解。后者Promise Resolution Procedure意思？用人话解释就是：then方法返回一个Promise对象p2，那么调用then方法的p1的状态和最终值，将由p2的状态和最终值决定。（这里不考虑thenable对象）</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">let</span> p1.then(<span class="function">(<span class="params">res</span>) =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function">(<span class="params">resolve, reject</span>) =&gt;</span> &#123;</span><br><span class="line"></span><br><span class="line">    &#125;)</span><br><span class="line">&#125;)</span><br></pre></td></tr></table></figure>
+<h3 id="Promise-对象"><a href="#Promise-对象" class="headerlink" title="Promise 对象"></a>Promise 对象</h3><p>都0202年了，用下 class 吧：）</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> PENDING = <span class="string">'pending'</span>;</span><br><span class="line"><span class="keyword">const</span> REJECTED = <span class="string">'rejected'</span>;</span><br><span class="line"><span class="keyword">const</span> FULFILLED = <span class="string">'fulfilled'</span>;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Promise</span> </span>&#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">constructor</span>(fn) &#123;</span><br><span class="line">        <span class="keyword">this</span>._status = PENDING;</span><br><span class="line">        <span class="keyword">this</span>._result = <span class="keyword">void</span> <span class="number">0</span>;</span><br><span class="line">        <span class="comment">/** promise 成功/失败后，注册的then应该是按照顺序执行的，这里用两个队列维护 */</span></span><br><span class="line">        <span class="keyword">this</span>._onResolveQueue = [];</span><br><span class="line">        <span class="keyword">this</span>._onRejectQueue = [];</span><br><span class="line">        <span class="comment">/** 传入的fn其实是个函数</span></span><br><span class="line"><span class="comment">         * new Promise((resolve, reject) =&gt; &#123;</span></span><br><span class="line"><span class="comment">         *   console.log(1)</span></span><br><span class="line"><span class="comment">         *   resolve(3)</span></span><br><span class="line"><span class="comment">         * &#125;)</span></span><br><span class="line"><span class="comment">         * 我们希望fn立刻执行，resolve的值保留到给到promise</span></span><br><span class="line"><span class="comment">         * 那么就是在fn执行的时候绑定到promise实例上</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            fn(<span class="keyword">this</span>.resolve.bind(<span class="keyword">this</span>), <span class="keyword">this</span>.reject.bind(<span class="keyword">this</span>));</span><br><span class="line">        &#125; <span class="keyword">catch</span>(e) &#123;</span><br><span class="line">            <span class="keyword">this</span>.reject(e)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     *resolve 和 reject方法类似，以resolve为例，在Promise(fn) 调用resolve的时候，将值作为promise的最终值，并清空回调队列</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    resolve(res) &#123;</span><br><span class="line">        <span class="keyword">this</span>._status = FULFILLED;</span><br><span class="line">        <span class="keyword">this</span>._result = res;</span><br><span class="line">        <span class="comment">// 清空queue</span></span><br><span class="line">        <span class="keyword">this</span>.emptyQueue(<span class="keyword">this</span>._onResolveQueue)</span><br><span class="line">    &#125;</span><br><span class="line">    reject(err) &#123;</span><br><span class="line">        <span class="keyword">this</span>._status = REJECTED;</span><br><span class="line">        <span class="keyword">this</span>._result = err;</span><br><span class="line">        <span class="keyword">this</span>.emptyQueue(<span class="keyword">this</span>._onRejectQueue)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/** </span></span><br><span class="line"><span class="comment">     * then方法注册的回调函数应该是异步执行的。这里简单用setTimeout包装下</span></span><br><span class="line"><span class="comment">     * 更多实现可以看nextTick：https://www.xqyoung.com/2018/11/20/promise-lie/#nextTick-%E5%AE%9E%E7%8E%B0</span></span><br><span class="line"><span class="comment">    */</span></span><br><span class="line">    emptyQueue(queue) &#123;</span><br><span class="line">        <span class="keyword">let</span> _this = <span class="keyword">this</span>;</span><br><span class="line">        setTimeout(<span class="function"><span class="params">()</span> =&gt;</span> &#123;</span><br><span class="line">            queue.forEach(<span class="function"><span class="params">cb</span> =&gt;</span> cb(_this._result));</span><br><span class="line">            queue.length = <span class="number">0</span>;</span><br><span class="line">        &#125;, <span class="number">0</span>)</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="then-方法"><a href="#then-方法" class="headerlink" title="then 方法"></a>then 方法</h3><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/** </span></span><br><span class="line"><span class="comment"> * then 方法接受两个参数，onResolve，onReject</span></span><br><span class="line"><span class="comment"> * 以p.then(...)为例子</span></span><br><span class="line"><span class="comment"> * 如果p成功则onResolve的方法要加入_onResolveQueue</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line">MyPromise.prototype.then = <span class="function"><span class="keyword">function</span></span></span><br><span class="line"><span class="function">(<span class="params">onResolve, onReject</span>) </span>&#123;</span><br><span class="line">    <span class="comment">// 如果 onResolve, onReject 不是函数，忽略，同时实现透传，即</span></span><br><span class="line">  <span class="comment">// Promise.then().then(num =&gt; &#123;console.log(num);&#125;)</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="keyword">typeof</span> onResolve !== <span class="string">'function'</span> &amp;&amp; <span class="keyword">this</span>._status === FULFILLED ||</span><br><span class="line">    <span class="keyword">typeof</span> onReject !== <span class="string">'function'</span> &amp;&amp; <span class="keyword">this</span>._status === REJECTED) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">this</span>;</span><br><span class="line">  &#125;</span><br><span class="line">    <span class="comment">// then 方法返回一个promise</span></span><br><span class="line">    <span class="keyword">let</span> that = <span class="keyword">this</span>;</span><br><span class="line">    <span class="comment">// return 的Promise命名为p2吧</span></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> <span class="built_in">Promise</span>(<span class="function">(<span class="params">resolve, reject</span>) =&gt;</span> &#123;</span><br><span class="line">        <span class="comment">// 回调函数也可能执行失败 需要try-catch 包装下</span></span><br><span class="line">        <span class="comment">// p的状态由p2决定</span></span><br><span class="line">        <span class="keyword">const</span> successCb = <span class="function">(<span class="params">result</span>) =&gt;</span> &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                resolve(onResolve(result))</span><br><span class="line">            &#125; <span class="keyword">catch</span>(e) &#123;</span><br><span class="line">                reject(onReject(result))</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">const</span> failCb = <span class="function">(<span class="params">err</span>) =&gt;</span> &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                reject(onReject(err))</span><br><span class="line">            &#125; <span class="keyword">catch</span>(e) &#123;</span><br><span class="line">                reject(onReject(e))</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 回调函数入队</span></span><br><span class="line">        onResolve &amp;&amp; that._status !== REJECTED &amp;&amp; that._onResolveQueue.push(successCb);</span><br><span class="line">        onReject &amp;&amp; that._status !== FULFILLED &amp;&amp; that._onRejectQueue.push(failCb);</span><br><span class="line">        <span class="comment">// p已经FULFILLED/REJECTED</span></span><br><span class="line">        <span class="comment">// 清空对应回调函数队列</span></span><br><span class="line">        that._status === FULFILLED &amp;&amp; that.emptyQueue(that._onResolveQueue);</span><br><span class="line">        that._status === REJECTED &amp;&amp; that.emptyQueue(that._onRejectQueue);</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="补充下静态方法"><a href="#补充下静态方法" class="headerlink" title="补充下静态方法"></a>补充下静态方法</h2><p>Promise.resolve 等方法，基于then方法封装下就好了。</p>
+<pre><code class="javascript"><span class="class"><span class="keyword">class</span> <span class="title">MyPromise</span> </span>{
+    <span class="keyword">static</span> resolve(any) {
+        <span class="keyword">return</span> <span class="keyword">new</span> MyPromise(<span class="function">(<span class="params">resolve</span>) =&gt;</span> {
+            resolve(any);
+        })
+    }
+    <span class="keyword">static</span> reject(any) {
+        <span class="keyword">return</span> <span class="keyword">new</span> MyPromise(<span class="function">(<span class="params"><span class="literal">undefined</span>, reject</span>) =&gt;</span> {
+            reject(any)
+        })
+    }
+}
+
+MyPromise.prototype.catch = <span class="function">(<span class="params">onReject</span>) =&gt;</span> {
+    <span class="keyword">return</span> <span class="keyword">this</span>.then(<span class="literal">null</span>, onReject)
+}
+</code></pre>
+
+                                                                        
+                                    </div>
+                                    <footer class="article-footer">
+                                        <a data-url="http://www.xqyoung.com/2020/07/16/promise-implement/" data-id="ckcrdomgd00140yjewqw6nq96" class="article-share-link">
+                                            Share
+                                        </a>
+                                        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/js/">js</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/异步编程/">异步编程</a></li></ul>
+
+                                    </footer>
+
+    </div>
+
+    
+        
+  <nav class="article-nav">
+    
+    
+      <a href="/2020/07/12/xss-and-csrf/" class="article-nav-link">
+        <strong class="article-nav-caption">Older</strong>
+        <div class="article-nav-title">xss 和 csrf 防范</div>
+      </a>
+    
+  </nav>
+
+
+            
+
+                
+                    
+                        
+                            
+
+</article>
+</section>
+  <footer class="footer">
+  <div class="outer">
+    <div class="float-right">
+      <ul class="list-inline">
+  
+    <li><i class="fe fe-smile-alt"></i> <span id="busuanzi_value_site_uv"></span></li>
+  
+    <li><i class="fe fe-bookmark"></i> <span id="busuanzi_value_page_pv"></span></li>
+  
+</ul>
+    </div>
+    <ul class="list-inline">
+      <li>&copy; 2020 xqyoung&#39;s blog</li>
+      <li>Powered by <a href="http://hexo.io/" target="_blank">Hexo</a></li>
+      <li>Theme  <a href="https://github.com/zhwangart/hexo-theme-ocean">Ocean</a></li>
+    </ul>
+  </div>
+</footer>
+
+</main>
+<aside class="sidebar">
+  <button class="navbar-toggle"></button>
+<nav class="navbar">
+  
+    <div class="logo">
+      <a href="/"><img src="/images/hexo.svg" alt="xqyoung&#39;s blog"></a>
+    </div>
+  
+  <ul class="nav nav-main">
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/">Home</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/archives">Archives</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/categories">Categories</a>
+      </li>
+    
+      <li class="nav-item">
+        <a class="nav-item-link" href="/tags">Tags</a>
+      </li>
+    
+    <li class="nav-item">
+      <a class="nav-item-link nav-item-search" title="Search">
+        <i class="fe fe-search"></i>
+        Search
+      </a>
+    </li>
+  </ul>
+</nav>
+<nav class="navbar navbar-bottom">
+  <ul class="nav">
+    <li class="nav-item">
+      <div class="totop" id="totop">
+  <i class="fe fe-rocket"></i>
+</div>
+    </li>
+    <li class="nav-item">
+      
+        <a class="nav-item-link" target="_blank" href="/atom.xml" title="RSS Feed">
+          <i class="fe fe-feed"></i>
+        </a>
+      
+    </li>
+  </ul>
+</nav>
+<div class="search-form-wrap">
+  <div class="local-search local-search-plugin">
+  <input type="search" id="local-search-input" class="local-search-input" placeholder="Search...">
+  <div id="local-search-result" class="local-search-result"></div>
+</div>
+</div>
+</aside>
+<script src="/js/jquery-2.0.3.min.js"></script>
+<script src="/js/jquery.justifiedGallery.min.js"></script>
+<script src="/js/lazyload.min.js"></script>
+<script src="/js/busuanzi-2.3.pure.min.js"></script>
+
+  <script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+  <script src="/js/tocbot.min.js"></script>
+  <script>
+    // Tocbot_v4.7.0  http://tscanlin.github.io/tocbot/
+    tocbot.init({
+      tocSelector: '.tocbot',
+      contentSelector: '.article-entry',
+      headingSelector: 'h1, h2, h3, h4, h5, h6',
+      hasInnerContainers: true,
+      scrollSmooth: true,
+      positionFixedSelector: '.tocbot',
+      positionFixedClass: 'is-position-fixed',
+      fixedSidebarOffset: 'auto',
+    });
+  </script>
+
+
+<script src="/js/ocean.js"></script>
+<script src="/js/search.js"></script>
+
+</body>
+</html>
